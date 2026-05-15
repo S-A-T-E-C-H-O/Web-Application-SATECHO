@@ -37,10 +37,10 @@ const emit = defineEmits([
       <div class="register-content">
         <div class="register-header">
           <h2>
-            Háblanos de ti
+            {{ $t('auth.aboutYou') }}
           </h2>
           <p>
-            Completa tu información de contacto para personalizar tu experiencia en SATECHO.
+            {{ $t('auth.aboutYouDesc') }}
           </p>
         </div>
         <form class="register-form">
@@ -48,7 +48,7 @@ const emit = defineEmits([
           <!-- Nombre -->
           <div class="input-group">
             <label>
-              Nombre Completo
+              {{ $t('auth.fullName') }}
             </label>
             <div class="input-wrapper"
                  :class="{    success: fullName && !fullNameError, error: fullNameError}">
@@ -56,7 +56,7 @@ const emit = defineEmits([
                   :value="fullName"
                   @input="emit('update:fullName', $event.target.value)"
                   type="text"
-                  placeholder="Ej. Alex Martínez"
+                  :placeholder="$t('auth.fullNamePlaceholder')"
               />
               <span v-if="fullName && !fullNameError" class="material-symbols-outlined success-icon">
                           check_circle
@@ -69,7 +69,7 @@ const emit = defineEmits([
                 v-if="fullName && !fullNameError"
                 class="success-text"
             >
-              Nombre válido
+              {{ $t('auth.validName') }}
             </small>
             <small
                 v-if="fullNameError"
@@ -82,14 +82,14 @@ const emit = defineEmits([
           <!-- Email -->
           <div class="input-group">
             <label>
-              Correo Electrónico
+              {{ $t('auth.email') }}
             </label>
             <div class="input-wrapper" :class="{ success: email && !emailError, error: emailError}">
               <input
                   :value="email"
                   @input="emit('update:email', $event.target.value)"
                   type="email"
-                  placeholder="alex@ejemplo.com"
+                  :placeholder="$t('auth.emailPlaceholder')"
               />
               <span v-if="email && !emailError" class="material-symbols-outlined success-icon">
                           check_circle
@@ -102,7 +102,7 @@ const emit = defineEmits([
                 v-if="email && !emailError"
                 class="success-text"
             >
-              Correo válido
+              {{ $t('auth.validEmail') }}
             </small>
             <small
                 v-if="emailError"
@@ -115,7 +115,7 @@ const emit = defineEmits([
           <!-- Teléfono -->
           <div class="input-group">
             <label>
-              Número de Teléfono
+              {{ $t('auth.phone') }}
             </label>
             <div class="phone-wrapper">
               <div class="country-selector">
@@ -169,7 +169,7 @@ const emit = defineEmits([
               </div>
             </div>
             <small v-if="phone && !phoneError" class="success-text">
-              Número válido
+              {{ $t('auth.validPhone') }}
             </small>
             <small v-if="phoneError" class="error-text">
               {{ phoneError }}
@@ -187,7 +187,7 @@ const emit = defineEmits([
               <span class="material-symbols-outlined">
                 arrow_back
               </span>
-          Atrás
+          {{ $t('general.back') }}
         </button>
         <button
             class="primary-button"
@@ -195,7 +195,7 @@ const emit = defineEmits([
             :class="{ disabled: !isStepTwoValid }"
             @click="emit('continue')"
         >
-          Continuar
+          {{ $t('general.continue') }}
           <span class="material-symbols-outlined">
                 arrow_forward
               </span>
@@ -210,7 +210,7 @@ const emit = defineEmits([
                     shield
                   </span>
         <span>
-                    Seguridad SSL
+                    {{ $t('auth.sslSecurity') }}
                   </span>
       </div>
       <div class="trust-item">
@@ -218,7 +218,7 @@ const emit = defineEmits([
                     lock
                   </span>
         <span>
-                    Protección GDPR
+                    {{ $t('auth.gdprProtection') }}
                   </span>
       </div>
     </div>

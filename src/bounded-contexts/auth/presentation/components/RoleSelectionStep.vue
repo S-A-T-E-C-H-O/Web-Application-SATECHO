@@ -5,7 +5,7 @@ const emit = defineEmits(['selectRole'])
 <template>
   <section class="roles-grid">
 
-  <!-- Agricultor -->
+  <!-- Farmer -->
   <button
       class="role-card"
       @click="emit('selectRole', 'farmer')"
@@ -16,14 +16,14 @@ const emit = defineEmits(['selectRole'])
           </span>
     </div>
     <h3>
-      Agricultor
+      {{ $t('auth.farmer') }}
     </h3>
     <p>
-      Gestiona tus cultivos, optimiza recursos y recibe alertas inteligentes directamente en tu parcela.
+      {{ $t('auth.farmerDesc') }}
     </p>
     <div class="card-action">
           <span>
-            Empezar como Agricultor
+            {{ $t('auth.startAsFarmer') }}
           </span>
       <span class="material-symbols-outlined">
             arrow_forward
@@ -31,7 +31,7 @@ const emit = defineEmits(['selectRole'])
     </div>
   </button>
 
-  <!-- Agrónomo -->
+  <!-- Agronomist -->
   <button
       class="role-card"
       @click="emit('selectRole', 'agronomist')"
@@ -42,14 +42,14 @@ const emit = defineEmits(['selectRole'])
           </span>
     </div>
     <h3>
-      Agrónomo
+      {{ $t('auth.agronomist') }}
     </h3>
     <p>
-      Analiza datos masivos, gestiona múltiples clientes y genera informes técnicos de alto valor agronómico.
+      {{ $t('auth.agronomistDesc') }}
     </p>
     <div class="card-action">
           <span>
-            Empezar como Agrónomo
+            {{ $t('auth.startAsAgronomist') }}
           </span>
       <span class="material-symbols-outlined">
             arrow_forward

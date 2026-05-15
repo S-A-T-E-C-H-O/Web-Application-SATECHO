@@ -1,5 +1,6 @@
 <script setup>
 import { computed, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { countries } from '@/shared/constants/countries'
 import {
@@ -17,12 +18,13 @@ import { useAuthStore } from '@/bounded-contexts/auth/application/stores/auth.st
 
 const router = useRouter()
 const authStore = useAuthStore()
+const { t } = useI18n()
 
 const currentStep = ref(1)
 const stepTitles = {
-  1: 'Selección de Rol',
-  2: 'Datos Personales',
-  3: 'Seguridad y Registro',
+  1: 'auth.step1',
+  2: 'auth.step2',
+  3: 'auth.step3',
 }
 
 /* VALIDACIONES */
@@ -43,7 +45,7 @@ const passwordRules = computed(() =>
 )
 
 const currentStepTitle = computed(
-    () => stepTitles[currentStep.value]
+    () => t(stepTitles[currentStep.value])
 )
 
 const progressWidth = computed(() => {
@@ -140,7 +142,7 @@ const submitRegistration = async () => {
           <span class="material-symbols-outlined">
             language
           </span>
-          ES
+          {{ $i18n.locale.toUpperCase() }}
         </button>
       </div>
     </header>
@@ -238,7 +240,7 @@ const submitRegistration = async () => {
           chevron_left
         </span>
         <RouterLink to="/login">
-          Volver
+          {{ $t('general.back') }}
         </RouterLink>
       </div>
       <p>

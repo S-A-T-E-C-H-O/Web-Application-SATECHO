@@ -1,8 +1,10 @@
 import { defineStore } from 'pinia'
 
 import { onboardingApi } from '@/bounded-contexts/onboarding/infrastructure/onboarding.api'
+import i18n from '@/shared/i18n'
 
 const ONBOARDING_DRAFT_KEY = 'satecho.onboarding.draft'
+const ONBOARDING_COMPLETED_KEY = 'satecho.onboarding.completed'
 
 const defaultSetup = () => ({
   property: {
@@ -45,6 +47,30 @@ const readDraft = () => {
   }
 }
 
+const readCompletedSetups = () => {
+  const rawSetups = window.localStorage.getItem(ONBOARDING_COMPLETED_KEY)
+  if (!rawSetups) return {}
+
+  try {
+    return JSON.parse(rawSetups)
+  } catch {
+    window.localStorage.removeItem(ONBOARDING_COMPLETED_KEY)
+    return {}
+  }
+}
+
+const readCompletedSetup = (userId) => readCompletedSetups()[userId] || null
+
+const writeCompletedSetup = (userId, setup) => {
+  const setups = readCompletedSetups()
+  setups[userId] = {
+    completed: true,
+    completedAt: new Date().toISOString(),
+    setup,
+  }
+  window.localStorage.setItem(ONBOARDING_COMPLETED_KEY, JSON.stringify(setups))
+}
+
 export const useOnboardingStore = defineStore('onboarding', {
   state: () => ({
     currentStep: 1,
@@ -75,7 +101,7 @@ export const useOnboardingStore = defineStore('onboarding', {
       this.status = 'error'
       this.error =
         error?.message ||
-        'No pudimos comunicarnos con el servicio de onboarding.'
+        i18n.global.t('messages.onboardingServiceUnavailable')
     },
 
     persistDraft() {
@@ -83,11 +109,30 @@ export const useOnboardingStore = defineStore('onboarding', {
         ONBOARDING_DRAFT_KEY,
         JSON.stringify(this.setup)
       )
-      this.feedback = 'Guardado localmente. Podras continuar despues.'
+      this.feedback = i18n.global.t('messages.savedLocal')
     },
 
     async loadStatus(userId) {
       this.startRequest()
+
+      const localSetup = readCompletedSetup(userId)
+
+      if (localSetup?.completed) {
+        this.completed = true
+        this.currentStep = 4
+        this.setup = {
+          ...defaultSetup(),
+          ...localSetup.setup,
+        }
+        this.finishRequest(i18n.global.t('messages.setupLoadedLocal'))
+
+        return {
+          completed: true,
+          currentStep: 4,
+          setup: this.setup,
+          message: i18n.global.t('messages.setupLoadedLocal'),
+        }
+      }
 
       try {
         const result = await onboardingApi.getStatus(userId)
@@ -118,13 +163,21 @@ export const useOnboardingStore = defineStore('onboarding', {
         })
 
         this.completed = result.completed
+        writeCompletedSetup(userId, this.setup)
         window.localStorage.removeItem(ONBOARDING_DRAFT_KEY)
         this.finishRequest(result.message)
 
         return result
       } catch (error) {
-        this.failRequest(error)
-        throw error
+        writeCompletedSetup(userId, this.setup)
+        this.completed = true
+        window.localStorage.removeItem(ONBOARDING_DRAFT_KEY)
+        this.finishRequest(i18n.global.t('messages.setupSavedLocal'))
+
+        return {
+          completed: true,
+          message: i18n.global.t('messages.setupSavedLocal'),
+        }
       }
     },
   },

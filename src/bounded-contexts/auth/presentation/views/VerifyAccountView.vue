@@ -50,7 +50,7 @@ const confirmAccount = async () => {
           <span class="material-symbols-outlined">
             language
           </span>
-            ES
+            {{ $i18n.locale.toUpperCase() }}
           </button>
         </div>
       </header>
@@ -69,13 +69,11 @@ const confirmAccount = async () => {
 
           <!-- TEXT -->
           <h2>
-            ¡Casi listo! Verifica tu correo
+            {{ $t('auth.verifyTitle') }}
           </h2>
 
           <p>
-            Hemos enviado un enlace de confirmación a tu dirección
-            de correo electrónico. Revisa tu bandeja de entrada
-            y también la carpeta de spam para activar tu cuenta.
+            {{ $t('auth.verifyDesc') }}
           </p>
 
           <p
@@ -95,7 +93,7 @@ const confirmAccount = async () => {
               open_in_new
             </span>
 
-            {{ authStore.isLoading ? 'Verificando...' : 'Abrir mi correo' }}
+            {{ authStore.isLoading ? $t('auth.verifying') : $t('auth.openMail') }}
           </button>
 
           <!-- RESEND -->
@@ -104,7 +102,7 @@ const confirmAccount = async () => {
               :disabled="authStore.isLoading || !verificationEmail"
               @click="resendVerificationEmail"
           >
-            ¿No has recibido nada? Reenviar enlace
+            {{ $t('auth.resendQuestion') }}
           </button>
 
           <p
@@ -127,7 +125,7 @@ const confirmAccount = async () => {
               schedule
             </span>
             <span>
-              El enlace expirará en 24 horas.
+              {{ $t('auth.expires24h') }}
             </span>
           </div>
         </section>
@@ -138,7 +136,7 @@ const confirmAccount = async () => {
   <footer class="footer">
     <p>
       © 2024 SATECHO Precision Agriculture.
-      Todos los derechos reservados.
+      {{ $t('general.footerRights') }}
     </p>
   </footer>
 </template>

@@ -1,0 +1,96 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "SATECHO Farm Dashboard Mock API",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "https://satecho-farm.free.beeceptor.com"
+    }
+  ],
+  "paths": {
+    "/farm/overview": {
+      "get": {
+        "summary": "Dashboard overview",
+        "responses": {
+          "200": {
+            "description": "Farm dashboard overview",
+            "content": {
+              "application/json": {
+                "example": {
+                  "farm": {
+                    "name": "La Esperanza Farm",
+                    "subtitle": "Overview of soil and irrigation monitoring",
+                    "owner": "Juan Garcia",
+                    "role": "Farmer"
+                  },
+                  "metrics": [
+                    { "key": "water", "label": "Water used today", "value": "2450 L", "detail": "12% less than yesterday", "icon": "water_drop" },
+                    { "key": "irrigation", "label": "Irrigation today", "value": "8", "detail": "Last 45 minutes ago", "icon": "play_circle" },
+                    { "key": "resolved", "label": "Alerts resolved", "value": "12", "detail": "All criticisms addressed", "icon": "check_circle" },
+                    { "key": "devices", "label": "Devices", "value": "18/20", "detail": "90% active network", "icon": "developer_board", "progress": 90 }
+                  ],
+                  "alerts": [
+                    { "id": "alert-1", "level": "critical", "badge": "CRITICAL", "title": "Greenhouse A", "description": "Critical humidity: 42% (minimum recommended: 65%)", "time": "5 minutes ago", "action": "Open irrigation" },
+                    { "id": "alert-2", "level": "attention", "badge": "ATTENTION", "title": "Greenhouse A", "description": "High EC: 1.8 mS/cm (recommended maximum: 1.5)", "time": "15 minutes ago", "action": "View details" },
+                    { "id": "alert-3", "level": "attention", "badge": "ATTENTION", "title": "Southern Sector", "description": "Low humidity: 58% (minimum recommended: 65%)", "time": "30 minutes ago", "action": "Open irrigation" },
+                    { "id": "alert-4", "level": "info", "badge": "INFO", "title": "Northern Perimeter", "description": "Movement detected - Confidence: 87%", "time": "1 hour ago", "action": "View event" }
+                  ],
+                  "zones": [
+                    { "id": "north", "name": "Northern Sector", "crop": "Tomato", "status": "normal", "humidity": 68, "ec": 2.4, "ph": 6.5, "temp": 24, "waterUsed": 450, "lastWatering": "Today 08:30" },
+                    { "id": "south", "name": "Southern Sector", "crop": "Lettuce", "status": "attention", "humidity": 58, "ec": 1.5, "ph": 6.2, "temp": 22, "waterUsed": 580, "lastWatering": "Today 06:00" },
+                    { "id": "greenhouse-a", "name": "Greenhouse A", "crop": "Strawberry", "status": "critical", "humidity": 42, "ec": 1.8, "ph": 5.8, "temp": 28, "waterUsed": 320, "lastWatering": "In progress", "irrigating": true },
+                    { "id": "east", "name": "East Plot", "crop": "Corn", "status": "normal", "humidity": 55, "ec": 1.8, "ph": 6.4, "temp": 26, "waterUsed": 720, "lastWatering": "Yesterday at 6:00 PM" }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/irrigation/history": {
+      "get": {
+        "summary": "Irrigation history",
+        "responses": {
+          "200": {
+            "description": "Irrigation history rows",
+            "content": {
+              "application/json": {
+                "example": {
+                  "items": [
+                    { "id": "history-1", "dateTime": "2024-01-15 14:30", "area": "Northern Sector", "action": "Open", "duration": "15 min", "water": "450", "user": "(Automatic) System" },
+                    { "id": "history-2", "dateTime": "2024-01-15 14:15", "area": "Greenhouse A", "action": "Open", "duration": "In progress", "water": "320", "user": "Juan Garcia" },
+                    { "id": "history-3", "dateTime": "2024-01-15 08:30", "area": "Northern Sector", "action": "Close", "duration": "15 min", "water": "450", "user": "(Automatic) System" }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/devices": {
+      "get": {
+        "summary": "IoT devices",
+        "responses": {
+          "200": {
+            "description": "Device rows",
+            "content": {
+              "application/json": {
+                "example": {
+                  "items": [
+                    { "id": "SENS-001", "name": "North-1 Ground Sensor", "code": "SENS-001", "type": "Ground sensor", "zone": "Northern Sector", "status": "online", "battery": 85, "lastReading": "2 min ago", "icon": "water_drop" },
+                    { "id": "VALVE-002", "name": "Main South Valve", "code": "VALVE-002", "type": "Valve controller", "zone": "Southern Sector", "status": "offline", "battery": 15, "lastReading": "2 hrs ago", "icon": "valve" },
+                    { "id": "PIR-001", "name": "PIR North Perimeter", "code": "PIR-001", "type": "Passive Infrared sensor", "zone": "Northern Perimeter", "status": "online", "battery": 100, "lastReading": "Live", "icon": "videocam" }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

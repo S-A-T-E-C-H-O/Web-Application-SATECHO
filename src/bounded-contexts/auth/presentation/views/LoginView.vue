@@ -14,7 +14,7 @@
           </div>
           <h1>SATECHO</h1>
           <p>
-            Portal de Agricultura de Precisión
+            {{ $t('auth.portalTitle') }}
           </p>
         </div>
 
@@ -27,11 +27,11 @@
           <!-- Email -->
           <div class="form-group">
             <label>
-              Correo Electrónico
+              {{ $t('auth.email') }}
             </label>
             <input
                 type="email"
-                placeholder="ejemplo@satecho.com"
+                :placeholder="$t('auth.emailPlaceholder')"
                 v-model.trim="email"
                 :disabled="authStore.isLoading"
                 required
@@ -41,7 +41,7 @@
           <!-- Password -->
           <div class="form-group">
             <label>
-              Contraseña
+              {{ $t('auth.password') }}
             </label>
             <div class="password-input">
               <input
@@ -68,11 +68,11 @@
             <label class="remember-me">
               <input type="checkbox" v-model="rememberMe" />
               <span>
-                Mantenerme conectado
+                {{ $t('auth.rememberMe') }}
               </span>
             </label>
             <a href="#">
-              Olvidé mi contraseña
+              {{ $t('auth.forgotPassword') }}
             </a>
           </div>
 
@@ -96,7 +96,7 @@
               class="submit-button"
               :disabled="authStore.isLoading"
           >
-            {{ authStore.isLoading ? 'Validando...' : 'Iniciar Sesión' }}
+            {{ authStore.isLoading ? $t('auth.validating') : $t('auth.login') }}
             <span class="material-symbols-outlined">
               login
             </span>
@@ -106,9 +106,9 @@
         <!-- Bottom -->
         <div class="bottom-section">
           <p>
-            ¿No tienes una cuenta?
+            {{ $t('auth.noAccount') }}
             <RouterLink to="/register/select-role">
-              Crear cuenta
+              {{ $t('auth.createAccount') }}
             </RouterLink>
           </p>
         </div>
@@ -119,7 +119,7 @@
   <footer class="footer">
     <p>
       © 2024 SATECHO Precision Agriculture.
-      Todos los derechos reservados.
+      {{ $t('general.footerRights') }}
     </p>
   </footer>
 </template>
