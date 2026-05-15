@@ -3,6 +3,155 @@ import { defineStore } from 'pinia'
 import { farmApi } from '@/bounded-contexts/dashboard/infrastructure/farm.api'
 import { operationsApi } from '@/bounded-contexts/dashboard/infrastructure/operations.api'
 
+const AUTH_STORAGE_KEY = 'satecho.auth.session'
+const ONBOARDING_COMPLETED_KEY = 'satecho.onboarding.completed'
+
+const readJsonStorage = (key, fallback) => {
+  const rawValue =
+    window.sessionStorage.getItem(key) || window.localStorage.getItem(key)
+  if (!rawValue) return fallback
+
+  try {
+    return JSON.parse(rawValue)
+  } catch {
+    return fallback
+  }
+}
+
+const readCurrentSession = () => readJsonStorage(AUTH_STORAGE_KEY, null)
+
+const readCurrentSetup = (userId) => {
+  const setups = readJsonStorage(ONBOARDING_COMPLETED_KEY, {})
+  return setups[userId]?.setup || null
+}
+
+const zoneStatusFromThresholds = (zone, thresholds) => {
+  const minMoisture = Number(thresholds?.soilMoisture?.[0] || 50)
+  const maxEc = Number(thresholds?.electricalConductivity?.[1] || 3)
+
+  if (zone.humidity < minMoisture - 12) return 'critical'
+  if (zone.humidity < minMoisture || zone.ec > maxEc) return 'attention'
+
+  return 'normal'
+}
+
+const buildZonesFromSetup = (setup) =>
+  setup.irrigationZones
+    .filter((zone) => zone.name && zone.crop)
+    .map((zone, index) => {
+      const humidity = Math.max(
+        34,
+        Number(setup.thresholds.soilMoisture?.[0] || 50) + 10 - index * 5
+      )
+      const ec = Number(setup.thresholds.electricalConductivity?.[0] || 1.5) + index * 0.2
+      const ph = Number(setup.thresholds.soilPh?.[0] || 6) + index * 0.1
+      const mappedZone = {
+        id: zone.name.toLowerCase().replace(/\s+/g, '-'),
+        name: zone.name,
+        crop: zone.crop,
+        areaHectares: zone.areaHectares,
+        humidity,
+        ec: Number(ec.toFixed(1)),
+        ph: Number(ph.toFixed(1)),
+        temp: 22 + index,
+        waterUsed: Math.round(Number(zone.areaHectares || 1) * 90),
+        lastWatering: index === 0 ? 'Today 08:30' : 'Yesterday at 6:00 PM',
+        irrigating: false,
+      }
+
+      return {
+        ...mappedZone,
+        status: zoneStatusFromThresholds(mappedZone, setup.thresholds),
+      }
+    })
+
+const buildDevicesFromSetup = (setup) => {
+  const zones = setup.irrigationZones.filter((zone) => zone.name)
+  const devices = []
+  let index = 1
+
+  zones.forEach((zone) => {
+    if (setup.devices.groundSensor) {
+      devices.push({
+        id: `SENS-${String(index).padStart(3, '0')}`,
+        name: `${zone.name} Ground Sensor`,
+        code: `SENS-${String(index).padStart(3, '0')}`,
+        type: 'Ground sensor',
+        zone: zone.name,
+        status: 'online',
+        battery: Math.max(45, 92 - index * 7),
+        lastReading: `${index} min ago`,
+        icon: 'water_drop',
+      })
+      index += 1
+    }
+
+    if (setup.devices.valveController) {
+      devices.push({
+        id: `VALVE-${String(index).padStart(3, '0')}`,
+        name: `${zone.name} Valve`,
+        code: `VALVE-${String(index).padStart(3, '0')}`,
+        type: 'Valve controller',
+        zone: zone.name,
+        status: 'online',
+        battery: 100,
+        lastReading: '30 sec ago',
+        icon: 'valve',
+      })
+      index += 1
+    }
+  })
+
+  if (setup.devices.weatherStation) {
+    devices.push({
+      id: 'WEATHER-001',
+      name: 'Central Meteorological Station',
+      code: 'WEATHER-001',
+      type: 'Weather station',
+      zone: setup.property.location || 'Central',
+      status: 'online',
+      battery: 68,
+      lastReading: '5 min ago',
+      icon: 'air',
+    })
+  }
+
+  if (setup.devices.securityCamera) {
+    devices.push({
+      id: 'PIR-001',
+      name: 'Main Perimeter Sensor',
+      code: 'PIR-001',
+      type: 'Passive Infrared sensor',
+      zone: 'Main Perimeter',
+      status: 'online',
+      battery: 100,
+      lastReading: 'Live',
+      icon: 'videocam',
+    })
+  }
+
+  return devices.length ? devices : fallbackDevices
+}
+
+const buildAlertsFromZones = (zones, thresholds) => {
+  const alerts = zones
+    .filter((zone) => zone.status !== 'normal')
+    .map((zone, index) => ({
+      id: `alert-${zone.id}`,
+      level: zone.status === 'critical' ? 'critical' : 'attention',
+      badge: zone.status === 'critical' ? 'CRITICAL' : 'ATTENTION',
+      title: zone.name,
+      description:
+        zone.status === 'critical'
+          ? `Critical humidity: ${zone.humidity}% (minimum recommended: ${thresholds.soilMoisture[0]}%)`
+          : `Review ${zone.crop} thresholds: EC ${zone.ec} mS/cm and pH ${zone.ph}`,
+      time: index === 0 ? '5 minutes ago' : '15 minutes ago',
+      action: zone.status === 'critical' ? 'Open irrigation' : 'View details',
+    }))
+
+  return alerts.length ? alerts : fallbackOverview.alerts.slice(3)
+}
+
 const fallbackOverview = {
   farm: {
     name: 'La Esperanza Farm',
@@ -299,7 +448,87 @@ export const useDashboardStore = defineStore('dashboard', {
       const failed = tasks.some((task) => task.status === 'rejected')
       this.status = failed ? 'local' : 'success'
       this.error = failed ? 'Using local dashboard data while Beeceptor is unavailable.' : ''
+      this.applyLocalUserConfiguration()
       this.updateOverviewMetrics()
+    },
+
+    applyLocalUserConfiguration() {
+      const session = readCurrentSession()
+      const user = session?.user
+      if (!user?.id) return
+
+      const setup = readCurrentSetup(user.id)
+
+      this.overview.farm = {
+        ...this.overview.farm,
+        name: setup?.property?.name || this.overview.farm.name,
+        subtitle: setup?.property
+          ? `${setup.property.location || 'Configured property'} - ${setup.property.sizeHectares || 0} ha`
+          : this.overview.farm.subtitle,
+        owner: user.fullName || this.overview.farm.owner,
+        role: user.role === 'agronomist' ? 'Agronomist' : 'Farmer',
+        location: setup?.property?.location || user.location || '',
+        sizeHectares: setup?.property?.sizeHectares || '',
+      }
+
+      if (!setup) return
+
+      const zones = buildZonesFromSetup(setup)
+      this.overview.zones = zones.length ? zones : this.overview.zones
+      this.overview.alerts = buildAlertsFromZones(this.overview.zones, setup.thresholds)
+      this.devices = buildDevicesFromSetup(setup)
+      this.history = this.overview.zones.flatMap((zone, index) => [
+        {
+          id: `setup-open-${zone.id}`,
+          dateTime: 'Today 08:30',
+          area: zone.name,
+          action: 'Open',
+          duration: `${15 + index * 5} min`,
+          water: String(zone.waterUsed),
+          user: '(Automatic) System',
+        },
+        {
+          id: `setup-close-${zone.id}`,
+          dateTime: 'Today 08:45',
+          area: zone.name,
+          action: 'Close',
+          duration: `${15 + index * 5} min`,
+          water: String(zone.waterUsed),
+          user: user.fullName || 'Current user',
+        },
+      ])
+    },
+
+    updateFarmProfile(profile) {
+      const session = readCurrentSession()
+      const userId = session?.user?.id
+      if (!userId) return
+
+      const setups = readJsonStorage(ONBOARDING_COMPLETED_KEY, {})
+      const currentSetup = setups[userId]?.setup || {
+        property: {},
+        irrigationZones: [],
+        devices: {},
+        thresholds: {},
+      }
+
+      setups[userId] = {
+        ...setups[userId],
+        completed: true,
+        setup: {
+          ...currentSetup,
+          property: {
+            ...currentSetup.property,
+            name: profile.propertyName || currentSetup.property.name,
+            location: profile.location || currentSetup.property.location,
+            sizeHectares:
+              profile.sizeHectares || currentSetup.property.sizeHectares,
+          },
+        },
+      }
+      window.localStorage.setItem(ONBOARDING_COMPLETED_KEY, JSON.stringify(setups))
+      this.applyLocalUserConfiguration()
+      this.setFeedback('Farm profile updated.')
     },
 
     async toggleIrrigation(zoneId, minutes = 15) {

@@ -163,7 +163,7 @@ const handleLogin = async () => {
     return
   }
 
-  router.push('/onboarding')
+  router.push(router.currentRoute.value.query.redirect || '/onboarding')
 }
 </script>
 

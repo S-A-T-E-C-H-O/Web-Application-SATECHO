@@ -2,10 +2,12 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
+import { useAuthStore } from '@/bounded-contexts/auth/application/stores/auth.store'
 import { useDashboardStore } from '@/bounded-contexts/dashboard/application/stores/dashboard.store'
 
 const route = useRoute()
 const router = useRouter()
+const authStore = useAuthStore()
 const dashboardStore = useDashboardStore()
 
 const irrigationTab = ref('control')
@@ -15,6 +17,15 @@ const selectedDuration = ref(15)
 const historyArea = ref('all')
 const deviceStatus = ref('all')
 const deviceType = ref('all')
+const isEditingProfile = ref(false)
+const profileForm = ref({
+  fullName: '',
+  email: '',
+  phone: '',
+  location: '',
+  propertyName: '',
+  sizeHectares: '',
+})
 
 const navigation = [
   { key: 'dashboard', label: 'Dashboard', icon: 'dashboard' },
@@ -76,8 +87,32 @@ const exportHistory = () => {
   dashboardStore.setFeedback('Irrigation history copied as CSV.')
 }
 
-onMounted(() => {
-  dashboardStore.loadDashboard()
+const syncProfileForm = () => {
+  profileForm.value = {
+    fullName: authStore.user?.fullName || overview.value.farm.owner || '',
+    email: authStore.user?.email || '',
+    phone: authStore.user?.phone || '',
+    location: overview.value.farm.location || authStore.user?.location || '',
+    propertyName: overview.value.farm.name || '',
+    sizeHectares: overview.value.farm.sizeHectares || '',
+  }
+}
+
+const saveProfile = () => {
+  authStore.updateProfile({
+    fullName: profileForm.value.fullName,
+    email: profileForm.value.email,
+    phone: profileForm.value.phone,
+    location: profileForm.value.location,
+  })
+  dashboardStore.updateFarmProfile(profileForm.value)
+  dashboardStore.overview.farm.owner = profileForm.value.fullName
+  isEditingProfile.value = false
+}
+
+onMounted(async () => {
+  await dashboardStore.loadDashboard()
+  syncProfileForm()
 })
 </script>
 
@@ -570,16 +605,51 @@ onMounted(() => {
                   <h2><span class="material-symbols-outlined">person</span> Profile information</h2>
                   <p>Basic information about your account</p>
                 </div>
-                <button class="outline-button compact"><span class="material-symbols-outlined">edit</span> Edit</button>
+                <button class="outline-button compact" @click="isEditingProfile = !isEditingProfile">
+                  <span class="material-symbols-outlined">{{ isEditingProfile ? 'close' : 'edit' }}</span>
+                  {{ isEditingProfile ? 'Cancel' : 'Edit' }}
+                </button>
               </header>
-              <div class="profile-summary">
-                <div class="large-avatar">JG<span class="material-symbols-outlined">photo_camera</span></div>
-                <dl><dt>Full name</dt><dd>Juan Garcia</dd></dl>
-                <dl><dt>Email</dt><dd>juan@fincalaesperanza.com</dd></dl>
+              <div v-if="!isEditingProfile" class="profile-summary">
+                <div class="large-avatar">
+                  {{ (authStore.user?.fullName || overview.farm.owner).slice(0, 2).toUpperCase() }}
+                  <span class="material-symbols-outlined">photo_camera</span>
+                </div>
+                <dl><dt>Full name</dt><dd>{{ authStore.user?.fullName || overview.farm.owner }}</dd></dl>
+                <dl><dt>Email</dt><dd>{{ authStore.user?.email || 'No email registered' }}</dd></dl>
               </div>
+              <form v-else class="profile-edit-grid" @submit.prevent="saveProfile">
+                <label>
+                  <span>Full name</span>
+                  <input v-model.trim="profileForm.fullName" required>
+                </label>
+                <label>
+                  <span>Email</span>
+                  <input v-model.trim="profileForm.email" type="email" required>
+                </label>
+                <label>
+                  <span>Phone</span>
+                  <input v-model.trim="profileForm.phone">
+                </label>
+                <label>
+                  <span>Property name</span>
+                  <input v-model.trim="profileForm.propertyName" required>
+                </label>
+                <label>
+                  <span>Location</span>
+                  <input v-model.trim="profileForm.location" required>
+                </label>
+                <label>
+                  <span>Size (ha)</span>
+                  <input v-model.number="profileForm.sizeHectares" type="number" min="0" step="0.1">
+                </label>
+                <button class="primary-action">Save profile</button>
+              </form>
               <div class="profile-meta">
-                <span><small>Language</small> English</span>
-                <span><small>Time zone</small> Bogota (GMT-5)</span>
+                <span><small>Language</small> {{ authStore.user?.language || 'English' }}</span>
+                <span><small>Time zone</small> {{ authStore.user?.timeZone || 'Bogota (GMT-5)' }}</span>
+                <span><small>Property</small> {{ overview.farm.name }}</span>
+                <span><small>Location</small> {{ overview.farm.location || 'Not configured' }}</span>
               </div>
             </section>
             <section class="surface-card account-card">
@@ -607,7 +677,7 @@ onMounted(() => {
               <h3>ACCOUNT SUMMARY</h3>
               <p><span class="material-symbols-outlined">workspace_premium</span><strong>Current plan<br>Premium Enterprise</strong> <button class="link-button">View plan</button></p>
               <p><span class="material-symbols-outlined">calendar_month</span><strong>Member since<br>March, 2026</strong></p>
-              <p><span class="material-symbols-outlined">sensors</span><strong>Active devices<br>18 / 20</strong></p>
+              <p><span class="material-symbols-outlined">sensors</span><strong>Active devices<br>{{ dashboardStore.onlineDevices }} / {{ dashboardStore.devices.length }}</strong></p>
               <button class="secondary-wide">Download account report</button>
             </section>
             <section class="surface-card mini-panel">
@@ -1803,8 +1873,39 @@ td {
 
 .profile-meta {
   justify-content: flex-start;
-  gap: 120px;
+  flex-wrap: wrap;
+  gap: 24px 70px;
   margin-top: 14px;
+}
+
+.profile-edit-grid {
+  border-bottom: 1px solid #edf0eb;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 24px;
+  padding-bottom: 24px;
+}
+
+.profile-edit-grid label {
+  display: grid;
+  gap: 7px;
+}
+
+.profile-edit-grid label span {
+  color: #667085;
+  font-size: 12px;
+}
+
+.profile-edit-grid input {
+  min-height: 40px;
+  border: 1px solid #cfd6cc;
+  border-radius: 8px;
+  padding: 0 12px;
+}
+
+.profile-edit-grid button {
+  align-self: end;
 }
 
 .password-grid {
@@ -1939,6 +2040,7 @@ td {
   .alert-row,
   .security-event,
   .password-grid,
+  .profile-edit-grid,
   .irrigation-actions {
     grid-template-columns: 1fr;
   }
