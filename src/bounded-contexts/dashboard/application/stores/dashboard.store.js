@@ -245,6 +245,7 @@ export const useDashboardStore = defineStore('dashboard', {
   }),
 
   getters: {
+    sortedHistory: (state) => state.history,
     unreadSecurityEvents: (state) =>
       state.securityEvents.filter((event) => !event.reviewed).length,
     onlineDevices: (state) =>
@@ -261,6 +262,22 @@ export const useDashboardStore = defineStore('dashboard', {
       window.setTimeout(() => {
         if (this.feedback === message) this.feedback = ''
       }, 2600)
+    },
+
+    updateOverviewMetrics() {
+      const devicesMetric = this.overview.metrics.find((metric) => metric.key === 'devices')
+      const irrigationMetric = this.overview.metrics.find((metric) => metric.key === 'irrigation')
+
+      if (devicesMetric) {
+        devicesMetric.value = `${this.onlineDevices}/${this.devices.length}`
+        devicesMetric.progress = Math.round((this.onlineDevices / this.devices.length) * 100)
+        devicesMetric.detail = `${devicesMetric.progress}% active network`
+      }
+
+      if (irrigationMetric) {
+        irrigationMetric.value = String(this.history.filter((item) => item.action === 'Open').length)
+        irrigationMetric.detail = 'Updated from local activity'
+      }
     },
 
     async loadDashboard() {
@@ -282,6 +299,7 @@ export const useDashboardStore = defineStore('dashboard', {
       const failed = tasks.some((task) => task.status === 'rejected')
       this.status = failed ? 'local' : 'success'
       this.error = failed ? 'Using local dashboard data while Beeceptor is unavailable.' : ''
+      this.updateOverviewMetrics()
     },
 
     async toggleIrrigation(zoneId, minutes = 15) {
@@ -309,6 +327,7 @@ export const useDashboardStore = defineStore('dashboard', {
         water: nextState ? String(zone.waterUsed) : '-',
         user: this.overview.farm.owner,
       })
+      this.updateOverviewMetrics()
 
       try {
         await operationsApi.registerIrrigationAction(action)
@@ -323,7 +342,65 @@ export const useDashboardStore = defineStore('dashboard', {
       if (event) {
         event.reviewed = true
         event.note = 'Reviewed'
+        this.setFeedback(`${event.type} event marked as reviewed.`)
       }
+    },
+
+    createSecurityEvent(type = 'Person') {
+      const now = new Date()
+      const event = {
+        id: `event-${now.getTime()}`,
+        type,
+        trust: type === 'Person' ? 94 : type === 'Vehicle' ? 89 : 77,
+        note: 'Without checking',
+        location: type === 'Vehicle' ? 'Main Entrance' : 'Northern Perimeter',
+        time: 'Just now',
+        device: type === 'Vehicle' ? 'PIR-002' : 'PIR-001',
+        priority: type === 'Person' ? 'critical' : 'normal',
+        reviewed: false,
+        icon: type === 'Vehicle' ? 'directions_car' : type === 'Animal' ? 'pets' : 'person',
+      }
+
+      this.securityEvents.unshift(event)
+      this.setFeedback(`${type} event created locally.`)
+    },
+
+    registerDevice() {
+      const nextIndex = this.devices.length + 1
+      const device = {
+        id: `SENS-${String(nextIndex).padStart(3, '0')}`,
+        name: `New Ground Sensor ${nextIndex}`,
+        code: `SENS-${String(nextIndex).padStart(3, '0')}`,
+        type: 'Ground sensor',
+        zone: 'Greenhouse A',
+        status: 'online',
+        battery: 100,
+        lastReading: 'Just now',
+        icon: 'water_drop',
+      }
+
+      this.devices.unshift(device)
+      this.updateOverviewMetrics()
+      this.setFeedback(`${device.name} registered locally.`)
+    },
+
+    toggleDeviceStatus(deviceId) {
+      const device = this.devices.find((item) => item.id === deviceId)
+      if (!device) return
+
+      device.status = device.status === 'online' ? 'offline' : 'online'
+      device.lastReading = device.status === 'online' ? 'Just now' : 'Disconnected'
+      this.updateOverviewMetrics()
+      this.setFeedback(`${device.name} is now ${device.status}.`)
+    },
+
+    refreshDeviceReading(deviceId) {
+      const device = this.devices.find((item) => item.id === deviceId)
+      if (!device) return
+
+      device.battery = Math.max(5, Number(device.battery) - 1)
+      device.lastReading = 'Just now'
+      this.setFeedback(`${device.name} reading refreshed.`)
     },
 
     async saveNotificationPreferences() {

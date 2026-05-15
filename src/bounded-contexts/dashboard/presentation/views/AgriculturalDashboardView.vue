@@ -12,6 +12,9 @@ const irrigationTab = ref('control')
 const securityTab = ref('events')
 const notificationsTab = ref('channels')
 const selectedDuration = ref(15)
+const historyArea = ref('all')
+const deviceStatus = ref('all')
+const deviceType = ref('all')
 
 const navigation = [
   { key: 'dashboard', label: 'Dashboard', icon: 'dashboard' },
@@ -32,6 +35,23 @@ const overview = computed(() => dashboardStore.overview)
 const zones = computed(() => overview.value.zones)
 const alerts = computed(() => overview.value.alerts)
 const preferences = computed(() => dashboardStore.notificationPreferences)
+const deviceTypes = computed(() => [
+  'all',
+  ...new Set(dashboardStore.devices.map((device) => device.type)),
+])
+const filteredHistory = computed(() => {
+  if (historyArea.value === 'all') return dashboardStore.sortedHistory
+
+  return dashboardStore.sortedHistory.filter((item) => item.area === historyArea.value)
+})
+const filteredDevices = computed(() =>
+  dashboardStore.devices.filter((device) => {
+    const matchesStatus = deviceStatus.value === 'all' || device.status === deviceStatus.value
+    const matchesType = deviceType.value === 'all' || device.type === deviceType.value
+
+    return matchesStatus && matchesType
+  })
+)
 
 const goTo = (key) => {
   router.push(`/dashboard/${key === 'dashboard' ? '' : key}`.replace(/\/$/, ''))
@@ -45,6 +65,15 @@ const statusLabel = (status) => {
 
 const toggleMatrix = (alertKey, channel) => {
   preferences.value.matrix[alertKey][channel] = !preferences.value.matrix[alertKey][channel]
+}
+
+const exportHistory = () => {
+  const rows = filteredHistory.value.map((item) =>
+    `${item.dateTime},${item.area},${item.action},${item.duration},${item.water},${item.user}`
+  )
+
+  navigator.clipboard?.writeText(`dateTime,area,action,duration,water,user\n${rows.join('\n')}`)
+  dashboardStore.setFeedback('Irrigation history copied as CSV.')
 }
 
 onMounted(() => {
@@ -101,7 +130,7 @@ onMounted(() => {
       <header class="topbar">
         <span />
         <div class="topbar-actions">
-          <button class="icon-button has-dot" aria-label="Notifications">
+          <button class="icon-button has-dot" aria-label="Notifications" @click="goTo('notifications')">
             <span class="material-symbols-outlined">notifications</span>
           </button>
           <button class="avatar-button">JG</button>
@@ -250,8 +279,14 @@ onMounted(() => {
               <p>Record of all irrigation actions</p>
             </div>
             <div class="table-tools">
-              <button class="outline-button compact"><span class="material-symbols-outlined">filter_list</span> All areas</button>
-              <button class="outline-button compact"><span class="material-symbols-outlined">download</span> Export</button>
+              <label class="select-filter">
+                <span class="material-symbols-outlined">filter_list</span>
+                <select v-model="historyArea">
+                  <option value="all">All areas</option>
+                  <option v-for="zone in zones" :key="zone.id" :value="zone.name">{{ zone.name }}</option>
+                </select>
+              </label>
+              <button class="outline-button compact" @click="exportHistory"><span class="material-symbols-outlined">download</span> Export</button>
             </div>
           </header>
           <table>
@@ -266,7 +301,7 @@ onMounted(() => {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="item in dashboardStore.history" :key="item.id">
+              <tr v-for="item in filteredHistory" :key="item.id">
                 <td>{{ item.dateTime }}</td>
                 <td>{{ item.area }}</td>
                 <td><span class="action-chip"><span class="material-symbols-outlined">{{ item.action === 'Open' ? 'play_circle' : 'stop_circle' }}</span>{{ item.action }}</span></td>
@@ -299,7 +334,7 @@ onMounted(() => {
             <button :class="{ active: securityTab === 'events' }" @click="securityTab = 'events'">Events <span class="counter-dot">{{ dashboardStore.unreadSecurityEvents }}</span></button>
             <button :class="{ active: securityTab === 'settings' }" @click="securityTab = 'settings'">Configuration</button>
           </div>
-          <button class="outline-button compact"><span class="material-symbols-outlined">filter_list</span> All events</button>
+          <button class="outline-button compact" @click="dashboardStore.createSecurityEvent('Person')"><span class="material-symbols-outlined">add_alert</span> Simulate event</button>
         </div>
 
         <div v-if="securityTab === 'events'" class="security-list">
@@ -346,7 +381,7 @@ onMounted(() => {
             <p>Select which types of events should generate push notifications and WhatsApp messages.</p>
             <div v-for="(enabled, key) in preferences.security.types" :key="key" class="switch-row">
               <span>{{ key === 'person' ? 'Detection of people' : key === 'vehicle' ? 'Vehicle detection' : key === 'animal' ? 'Animal detection' : 'Strong wind' }}</span>
-              <button class="switch" :class="{ on: enabled }" @click="preferences.security.types[key] = !enabled"><span /></button>
+              <button class="switch" :class="{ on: enabled }" @click="preferences.security.types[key] = !enabled; dashboardStore.setFeedback('Security notification type updated locally.')"><span /></button>
             </div>
           </section>
 
@@ -354,7 +389,7 @@ onMounted(() => {
             <h2>Active monitoring schedule push/WhatsApp.</h2>
             <p>Define when the system should send notifications.</p>
             <div v-for="day in preferences.security.schedule" :key="day.day" class="schedule-row">
-              <button class="switch small on"><span /></button>
+              <button class="switch small" :class="{ on: day.enabled }" @click="day.enabled = !day.enabled"><span /></button>
               <strong>{{ day.day }}</strong>
               <span>{{ day.start }} a {{ day.end }}</span>
             </div>
@@ -371,7 +406,7 @@ onMounted(() => {
             <h1>IoT Devices</h1>
             <p>Manage and monitor all connected devices</p>
           </div>
-          <button class="primary-action slim"><span class="material-symbols-outlined">add</span> Register device</button>
+          <button class="primary-action slim" @click="dashboardStore.registerDevice"><span class="material-symbols-outlined">add</span> Register device</button>
         </div>
 
         <div class="metric-grid three">
@@ -382,8 +417,22 @@ onMounted(() => {
 
         <section class="surface-card table-card">
           <div class="table-toolbar">
-            <button class="outline-button compact"><span class="material-symbols-outlined">filter_alt</span> All</button>
-            <button class="outline-button compact"><span class="material-symbols-outlined">memory</span> All types</button>
+            <label class="select-filter">
+              <span class="material-symbols-outlined">filter_alt</span>
+              <select v-model="deviceStatus">
+                <option value="all">All</option>
+                <option value="online">Online</option>
+                <option value="offline">Offline</option>
+              </select>
+            </label>
+            <label class="select-filter">
+              <span class="material-symbols-outlined">memory</span>
+              <select v-model="deviceType">
+                <option v-for="type in deviceTypes" :key="type" :value="type">
+                  {{ type === 'all' ? 'All types' : type }}
+                </option>
+              </select>
+            </label>
           </div>
           <table>
             <thead>
@@ -398,7 +447,7 @@ onMounted(() => {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="device in dashboardStore.devices" :key="device.id">
+              <tr v-for="device in filteredDevices" :key="device.id">
                 <td>
                   <div class="device-cell">
                     <span class="device-icon material-symbols-outlined">{{ device.icon }}</span>
@@ -410,7 +459,16 @@ onMounted(() => {
                 <td><span class="online-chip" :class="device.status"><span class="material-symbols-outlined">{{ device.status === 'online' ? 'wifi' : 'wifi_off' }}</span>{{ device.status }}</span></td>
                 <td><span :class="{ dangerText: device.battery <= 20 }"><span class="material-symbols-outlined tiny">battery_full</span> {{ device.battery }}%</span></td>
                 <td><span class="material-symbols-outlined tiny">schedule</span> {{ device.lastReading }}</td>
-                <td><button class="ghost-icon"><span class="material-symbols-outlined">settings</span></button></td>
+                <td>
+                  <div class="row-actions">
+                    <button class="ghost-icon" title="Refresh reading" @click="dashboardStore.refreshDeviceReading(device.id)">
+                      <span class="material-symbols-outlined">sync</span>
+                    </button>
+                    <button class="ghost-icon" title="Toggle status" @click="dashboardStore.toggleDeviceStatus(device.id)">
+                      <span class="material-symbols-outlined">power_settings_new</span>
+                    </button>
+                  </div>
+                </td>
               </tr>
             </tbody>
           </table>
@@ -719,7 +777,12 @@ td,
   display: flex;
   align-items: center;
   justify-content: space-between;
+  left: auto;
   padding: 0 24px;
+  position: sticky;
+  top: 0;
+  width: auto;
+  z-index: 8;
 }
 
 .topbar-actions {
@@ -1280,6 +1343,35 @@ dd {
 .table-tools {
   display: flex;
   gap: 12px;
+}
+
+.select-filter {
+  min-height: 34px;
+  border: 1px solid #d5dbd2;
+  border-radius: 8px;
+  background: white;
+  color: #1d251e;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+}
+
+.select-filter .material-symbols-outlined {
+  font-size: 18px;
+}
+
+.select-filter select {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  outline: 0;
+}
+
+.row-actions {
+  display: flex;
+  gap: 6px;
 }
 
 table {
