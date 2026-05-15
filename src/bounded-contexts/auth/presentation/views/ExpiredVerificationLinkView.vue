@@ -10,7 +10,7 @@
           <span class="material-symbols-outlined">
             language
           </span>
-          ES
+          {{ $i18n.locale.toUpperCase() }}
         </button>
       </div>
     </header>
@@ -29,13 +29,11 @@
 
         <!-- CONTENT -->
         <h2>
-          El enlace ha expirado
+          {{ $t('auth.linkExpired') }}
         </h2>
 
         <p>
-          Lo sentimos, el enlace de verificación ya no es válido
-          o ha expirado por motivos de seguridad.
-          Puedes solicitar uno nuevo ahora mismo.
+          {{ $t('auth.linkExpiredDesc') }}
         </p>
 
         <!-- ACTION -->
@@ -44,7 +42,7 @@
             :disabled="authStore.isLoading || !verificationEmail"
             @click="requestNewLink"
         >
-          {{ authStore.isLoading ? 'Solicitando...' : 'Solicitar nuevo enlace' }}
+          {{ authStore.isLoading ? $t('auth.requesting') : $t('auth.requestNewLink') }}
         </button>
 
         <p
@@ -70,15 +68,14 @@
             arrow_back
           </span>
 
-          Volver al inicio de sesión
+          {{ $t('auth.backToLogin') }}
         </RouterLink>
 
       </div>
 
       <!-- EXTRA TEXT -->
       <div class="security-message">
-        Crecimiento seguro: nuestra prioridad es la integridad
-        de sus datos agrícolas.
+        {{ $t('auth.secureGrowth') }}
       </div>
 
     </main>
@@ -87,7 +84,7 @@
     <footer class="footer">
       <p>
         © 2024 SATECHO Precision Agriculture.
-        Todos los derechos reservados.
+        {{ $t('general.footerRights') }}
       </p>
     </footer>
 

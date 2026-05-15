@@ -18,6 +18,7 @@ const historyArea = ref('all')
 const deviceStatus = ref('all')
 const deviceType = ref('all')
 const isEditingProfile = ref(false)
+const isUserMenuOpen = ref(false)
 const profileForm = ref({
   fullName: '',
   email: '',
@@ -110,6 +111,16 @@ const saveProfile = () => {
   isEditingProfile.value = false
 }
 
+const toggleUserMenu = () => {
+  isUserMenuOpen.value = !isUserMenuOpen.value
+}
+
+const closeSession = () => {
+  authStore.logout()
+  isUserMenuOpen.value = false
+  router.push('/login')
+}
+
 onMounted(async () => {
   await dashboardStore.loadDashboard()
   syncProfileForm()
@@ -151,14 +162,22 @@ onMounted(async () => {
         </button>
       </nav>
 
-      <button class="sidebar-user" @click="goTo('account')">
-        <span>JG</span>
-        <div>
-          <strong>{{ overview.farm.owner }}</strong>
-          <small>{{ overview.farm.role }}</small>
+      <div class="sidebar-user-wrapper">
+        <button class="sidebar-user" @click="toggleUserMenu">
+          <span>JG</span>
+          <div>
+            <strong>{{ overview.farm.owner }}</strong>
+            <small>{{ overview.farm.role }}</small>
+          </div>
+          <span class="material-symbols-outlined">expand_more</span>
+        </button>
+        <div v-if="isUserMenuOpen" class="sidebar-user-menu">
+          <button class="sidebar-user-menu-item" @click="closeSession">
+            <span class="material-symbols-outlined">logout</span>
+            Log out
+          </button>
         </div>
-        <span class="material-symbols-outlined">expand_more</span>
-      </button>
+      </div>
     </aside>
 
     <section class="app-panel">
@@ -802,6 +821,41 @@ button {
   gap: 12px;
   padding: 16px;
   text-align: left;
+}
+
+.sidebar-user-wrapper {
+  position: relative;
+}
+
+.sidebar-user-menu {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 84px;
+  background: #fff;
+  border: 1px solid #e0e2dc;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(16, 24, 40, 0.12);
+  z-index: 12;
+  padding: 6px;
+}
+
+.sidebar-user-menu-item {
+  width: 100%;
+  min-height: 38px;
+  border: 0;
+  background: transparent;
+  border-radius: 8px;
+  color: #ad1f1f;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+}
+
+.sidebar-user-menu-item:hover {
+  background: #f8ecec;
 }
 
 .sidebar-user > span:first-child,

@@ -1,4 +1,5 @@
 import { apiRequest } from '@/shared/infrastructure/http/api-client'
+import i18n from '@/shared/i18n'
 
 const readPayload = (response) => {
   const data = response?.data
@@ -43,7 +44,7 @@ export const authApi = {
         payload.sessionToken ||
         null,
       requiresVerification: Boolean(payload.requiresVerification),
-      message: successMessage(payload, 'Inicio de sesion correcto.'),
+      message: successMessage(payload, i18n.global.t('messages.loginSuccess')),
     }
   },
 
@@ -60,10 +61,10 @@ export const authApi = {
       verificationExpiresIn:
         payload.verificationExpiresIn ||
         payload.expiresIn ||
-        '24 horas',
+        '24 hours',
       message: successMessage(
         payload,
-        'Cuenta creada. Revisa tu correo para verificarla.'
+        i18n.global.t('messages.authApiRegisterSuccess')
       ),
     }
   },
@@ -78,7 +79,7 @@ export const authApi = {
 
     return {
       user: buildUserFromPayload(payload, { email }),
-      message: successMessage(payload, 'Cuenta verificada correctamente.'),
+      message: successMessage(payload, i18n.global.t('messages.accountVerified')),
     }
   },
 }
