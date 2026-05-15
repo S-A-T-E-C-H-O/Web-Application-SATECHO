@@ -41,7 +41,7 @@
 
         <button
             class="resend-button"
-            @click="router.push('/home')"
+            @click="router.push('/onboarding')"
         >
           Entrar al Sistema
         </button>

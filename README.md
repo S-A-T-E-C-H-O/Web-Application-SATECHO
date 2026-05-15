@@ -43,3 +43,11 @@ VITE_API_BASE_URL=https://satecho-auth.free.beeceptor.com
 Create the Beeceptor endpoint `satecho-auth` and import `docs/beeceptor/satecho-auth.openapi.json`, or set another endpoint in a local `.env` file. The implemented endpoints are documented in `docs/beeceptor/auth-api.md`.
 
 For future bounded contexts, create one Beeceptor endpoint per context when rule limits become tight, for example `satecho-fields` or `satecho-crops`.
+
+The onboarding bounded context uses its own Beeceptor endpoint:
+
+```bash
+VITE_ONBOARDING_API_BASE_URL=https://satecho-onboarding.free.beeceptor.com
+```
+
+Create the Beeceptor endpoint `satecho-onboarding` and import `docs/beeceptor/satecho-onboarding.openapi.json`. The implemented endpoints are documented in `docs/beeceptor/onboarding-api.md`.

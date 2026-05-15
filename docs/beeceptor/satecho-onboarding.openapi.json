@@ -1,0 +1,134 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "SATECHO Onboarding Mock API",
+    "version": "1.0.0",
+    "description": "Contrato mock para desarrollar el bounded context de onboarding sin backend real."
+  },
+  "servers": [
+    {
+      "url": "https://satecho-onboarding.free.beeceptor.com"
+    }
+  ],
+  "paths": {
+    "/onboarding/status": {
+      "get": {
+        "summary": "Obtener estado del onboarding",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Estado del onboarding",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OnboardingStatusResponse"
+                },
+                "example": {
+                  "completed": false,
+                  "currentStep": 1,
+                  "setup": {},
+                  "message": "Onboarding listo para continuar."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/onboarding/complete": {
+      "post": {
+        "summary": "Completar onboarding",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteOnboardingRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Onboarding completado",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompleteOnboardingResponse"
+                },
+                "example": {
+                  "completed": true,
+                  "message": "Configuracion completada correctamente."
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "OnboardingStatusResponse": {
+        "type": "object",
+        "properties": {
+          "completed": {
+            "type": "boolean"
+          },
+          "currentStep": {
+            "type": "number"
+          },
+          "setup": {
+            "type": "object"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "CompleteOnboardingRequest": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string"
+          },
+          "property": {
+            "type": "object"
+          },
+          "irrigationZones": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "devices": {
+            "type": "object"
+          },
+          "thresholds": {
+            "type": "object"
+          }
+        }
+      },
+      "CompleteOnboardingResponse": {
+        "type": "object",
+        "properties": {
+          "completed": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
