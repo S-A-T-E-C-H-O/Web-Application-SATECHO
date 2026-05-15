@@ -41,7 +41,7 @@
 
         <button
             class="resend-button"
-            @click="router.push('/onboarding')"
+            @click="enterSystem"
         >
           {{ $t('auth.enterSystem') }}
         </button>
@@ -80,6 +80,14 @@ const route = useRoute()
 const router = useRouter()
 const email = route.query.email || ''
 
+const enterSystem = () => {
+  const role = window.localStorage.getItem('userRole')
+  if (role === 'agronomist') {
+    router.push('/onboarding-agronomist')
+  } else {
+    router.push('/onboarding')
+  }
+}
 </script>
 
 <style scoped>

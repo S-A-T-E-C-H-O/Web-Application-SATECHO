@@ -163,7 +163,16 @@ const handleLogin = async () => {
     return
   }
 
-  router.push(router.currentRoute.value.query.redirect || '/onboarding')
+  if (session.user && session.user.role) {
+    window.localStorage.setItem('userRole', session.user.role)
+  }
+
+  const role = window.localStorage.getItem('userRole')
+  if (role === 'agronomist') {
+    router.push('/onboarding-agronomist')
+  } else {
+    router.push('/onboarding')
+  }
 }
 </script>
 
