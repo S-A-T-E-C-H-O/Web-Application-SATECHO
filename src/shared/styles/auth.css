@@ -250,6 +250,23 @@
     color: #d94b4b;
 }
 
+.form-message {
+    border-radius: 12px;
+    font-size: 14px;
+    line-height: 1.5;
+    padding: 12px 14px;
+}
+
+.error-message {
+    background: rgba(217, 75, 75, 0.08);
+    color: #9b2f2f;
+}
+
+.success-message {
+    background: rgba(78, 155, 78, 0.08);
+    color: #2e7d32;
+}
+
 .phone-wrapper {
     display: flex;
     gap: 12px;

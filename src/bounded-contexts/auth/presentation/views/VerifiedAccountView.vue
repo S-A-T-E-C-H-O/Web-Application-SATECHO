@@ -39,7 +39,10 @@
       <!-- ACTIONS -->
       <div class="actions-section">
 
-        <button class="resend-button">
+        <button
+            class="resend-button"
+            @click="router.push('/home')"
+        >
           Entrar al Sistema
         </button>
       </div>
@@ -71,8 +74,11 @@
 </template>
 
 <script setup>
+import { useRoute, useRouter } from 'vue-router'
 
-const email = 'juan@ejemplo.com'
+const route = useRoute()
+const router = useRouter()
+const email = route.query.email || ''
 
 </script>
 

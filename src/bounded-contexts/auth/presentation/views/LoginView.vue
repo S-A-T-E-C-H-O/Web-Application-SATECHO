@@ -21,7 +21,7 @@
         <!-- Form -->
         <form
             class="login-form"
-            @submit.prevent
+            @submit.prevent="handleLogin"
         >
 
           <!-- Email -->
@@ -32,6 +32,9 @@
             <input
                 type="email"
                 placeholder="ejemplo@satecho.com"
+                v-model.trim="email"
+                :disabled="authStore.isLoading"
+                required
             />
           </div>
 
@@ -43,6 +46,9 @@
             <div class="password-input">
               <input
                   :type="showPassword ? 'text' : 'password'"
+                  v-model="password"
+                  :disabled="authStore.isLoading"
+                  required
                   placeholder="••••••••"
               />
               <button
@@ -60,7 +66,7 @@
           <!-- Utilities -->
           <div class="utilities">
             <label class="remember-me">
-              <input type="checkbox" />
+              <input type="checkbox" v-model="rememberMe" />
               <span>
                 Mantenerme conectado
               </span>
@@ -70,12 +76,27 @@
             </a>
           </div>
 
+          <p
+              v-if="authStore.error"
+              class="form-message error-message"
+          >
+            {{ authStore.error }}
+          </p>
+
+          <p
+              v-else-if="authStore.feedback"
+              class="form-message success-message"
+          >
+            {{ authStore.feedback }}
+          </p>
+
           <!-- Submit -->
           <button
               type="submit"
               class="submit-button"
+              :disabled="authStore.isLoading"
           >
-            Iniciar Sesión
+            {{ authStore.isLoading ? 'Validando...' : 'Iniciar Sesión' }}
             <span class="material-symbols-outlined">
               login
             </span>
@@ -105,13 +126,44 @@
 
 <script setup>
 import { ref } from 'vue'
+import { useRouter } from 'vue-router'
 
 import AuthLayout from '@/shared/layouts/AuthLayout.vue'
+import { useAuthStore } from '@/bounded-contexts/auth/application/stores/auth.store'
 
 const showPassword = ref(false)
+const email = ref('')
+const password = ref('')
+const rememberMe = ref(false)
+const router = useRouter()
+const authStore = useAuthStore()
 
 const togglePassword = () => {
   showPassword.value = !showPassword.value
+}
+
+const handleLogin = async () => {
+  let session
+
+  try {
+    session = await authStore.login({
+      email: email.value,
+      password: password.value,
+      rememberMe: rememberMe.value,
+    })
+  } catch {
+    return
+  }
+
+  if (session.requiresVerification) {
+    router.push({
+      path: '/verify-account',
+      query: { email: email.value },
+    })
+    return
+  }
+
+  router.push('/home')
 }
 </script>
 
@@ -267,6 +319,28 @@ const togglePassword = () => {
 
 .submit-button:hover {
   opacity: 0.9;
+}
+
+.submit-button:disabled {
+  opacity: .65;
+  cursor: not-allowed;
+}
+
+.form-message {
+  border-radius: 12px;
+  font-size: 14px;
+  line-height: 1.5;
+  padding: 12px 14px;
+}
+
+.error-message {
+  background: rgba(217, 75, 75, 0.08);
+  color: #9b2f2f;
+}
+
+.success-message {
+  background: rgba(78, 155, 78, 0.08);
+  color: #2e7d32;
 }
 
 .bottom-section {

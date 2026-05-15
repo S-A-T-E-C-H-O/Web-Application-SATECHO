@@ -5,6 +5,7 @@ import SelectRoleView from "@/bounded-contexts/auth/presentation/views/SelectRol
 import VerifyAccountView from '@/bounded-contexts/auth/presentation/views/VerifyAccountView.vue'
 import VerifiedAccountView from '@/bounded-contexts/auth/presentation/views/VerifiedAccountView.vue'
 import ExpiredVerificationLinkView from '@/bounded-contexts/auth/presentation/views/ExpiredVerificationLinkView.vue'
+import HomeView from '@/shared/views/HomeView.vue'
 
 const routes = [
     {
@@ -16,6 +17,12 @@ const routes = [
         path: '/login',
         name: 'login',
         component: LoginView,
+    },
+
+    {
+        path: '/home',
+        name: 'home',
+        component: HomeView,
     },
 
     {

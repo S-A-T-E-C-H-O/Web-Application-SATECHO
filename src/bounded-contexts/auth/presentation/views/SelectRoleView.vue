@@ -13,7 +13,10 @@ import RegisterProgress from '@/bounded-contexts/auth/presentation/components/Re
 import RoleSelectionStep from '@/bounded-contexts/auth/presentation/components/RoleSelectionStep.vue'
 import PersonalInformationStep from "@/bounded-contexts/auth/presentation/components/PersonalInformationStep.vue";
 import SecurityStep from '@/bounded-contexts/auth/presentation/components/SecurityStep.vue'
-import router from "@/shared/router/index.js";
+import { useAuthStore } from '@/bounded-contexts/auth/application/stores/auth.store'
+
+const router = useRouter()
+const authStore = useAuthStore()
 
 const currentStep = ref(1)
 const stepTitles = {
@@ -100,6 +103,28 @@ const canSubmit = computed(() => {
       acceptTerms.value
   )
 })
+
+const submitRegistration = async () => {
+  try {
+    await authStore.register({
+      role: selectedRole.value,
+      fullName: fullName.value,
+      email: email.value,
+      phone: phone.value,
+      countryCode: selectedCountry.value.code,
+      password: password.value,
+      acceptTerms: acceptTerms.value,
+      acceptMarketing: acceptMarketing.value,
+    })
+
+    router.push({
+      path: '/verify-account',
+      query: { email: email.value },
+    })
+  } catch {
+    return
+  }
+}
 </script>
 
 <template>
@@ -186,6 +211,9 @@ const canSubmit = computed(() => {
             :accept-terms="acceptTerms"
             :accept-marketing="acceptMarketing"
             :can-submit="canSubmit"
+            :is-submitting="authStore.isLoading"
+            :submit-error="authStore.error"
+            :submit-feedback="authStore.feedback"
             @update:password="password = $event"
             @update:confirmPassword="confirmPassword = $event"
             @update:showPassword="showPassword = $event"
@@ -195,7 +223,7 @@ const canSubmit = computed(() => {
             @toggle-password="showPassword = !showPassword"
             @toggle-confirm-password="showConfirmPassword = !showConfirmPassword"
             @back="currentStep = 2"
-            @submit="router.push('/verify-account')"
+            @submit="submitRegistration"
         />
 
       </Transition>

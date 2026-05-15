@@ -39,9 +39,27 @@
         </p>
 
         <!-- ACTION -->
-        <button class="primary-button">
-          Solicitar nuevo enlace
+        <button
+            class="primary-button"
+            :disabled="authStore.isLoading || !verificationEmail"
+            @click="requestNewLink"
+        >
+          {{ authStore.isLoading ? 'Solicitando...' : 'Solicitar nuevo enlace' }}
         </button>
+
+        <p
+            v-if="authStore.error"
+            class="form-message error-message"
+        >
+          {{ authStore.error }}
+        </p>
+
+        <p
+            v-else-if="authStore.feedback"
+            class="form-message success-message"
+        >
+          {{ authStore.feedback }}
+        </p>
 
         <!-- BACK -->
         <RouterLink
@@ -75,6 +93,33 @@
 
   </div>
 </template>
+
+<script setup>
+import { computed } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { useAuthStore } from '@/bounded-contexts/auth/application/stores/auth.store'
+
+const route = useRoute()
+const router = useRouter()
+const authStore = useAuthStore()
+const verificationEmail = computed(
+  () => route.query.email || authStore.pendingVerificationEmail
+)
+
+const requestNewLink = async () => {
+  if (!verificationEmail.value) return
+
+  try {
+    await authStore.resendVerificationEmail(verificationEmail.value)
+    router.push({
+      path: '/verify-account',
+      query: { email: verificationEmail.value },
+    })
+  } catch {
+    return
+  }
+}
+</script>
 
 <style scoped>
 .expired-page {
@@ -199,6 +244,12 @@
 .primary-button:hover {
   transform: translateY(-2px);
   opacity: .95;
+}
+
+.primary-button:disabled {
+  cursor: not-allowed;
+  opacity: .65;
+  transform: none;
 }
 
 /* BACK LINK */

@@ -1,9 +1,42 @@
 <script setup>
 import AuthLayout from "@/shared/layouts/AuthLayout.vue";
 
-import { useRouter } from 'vue-router'
+import { computed } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { useAuthStore } from '@/bounded-contexts/auth/application/stores/auth.store'
 
 const router = useRouter()
+const route = useRoute()
+const authStore = useAuthStore()
+const verificationEmail = computed(
+  () => route.query.email || authStore.pendingVerificationEmail
+)
+
+const resendVerificationEmail = async () => {
+  if (!verificationEmail.value) return
+
+  try {
+    await authStore.resendVerificationEmail(verificationEmail.value)
+  } catch {
+    return
+  }
+}
+
+const confirmAccount = async () => {
+  try {
+    await authStore.confirmVerification({
+      email: verificationEmail.value,
+      token: route.query.token || 'beeceptor-demo-token',
+    })
+
+    router.push({
+      path: '/email-confirmation',
+      query: { email: verificationEmail.value },
+    })
+  } catch {
+    return
+  }
+}
 </script>
 <template>
   <AuthLayout>
@@ -45,22 +78,48 @@ const router = useRouter()
             y también la carpeta de spam para activar tu cuenta.
           </p>
 
+          <p
+              v-if="verificationEmail"
+              class="email-target"
+          >
+            {{ verificationEmail }}
+          </p>
+
           <!-- ACTION -->
           <button
               class="open-mail-button"
-              @click="router.push('/email-confirmation')"
+              :disabled="authStore.isLoading"
+              @click="confirmAccount"
           >
             <span class="material-symbols-outlined">
               open_in_new
             </span>
 
-            Abrir mi correo
+            {{ authStore.isLoading ? 'Verificando...' : 'Abrir mi correo' }}
           </button>
 
           <!-- RESEND -->
-          <button class="resend-button">
+          <button
+              class="resend-button"
+              :disabled="authStore.isLoading || !verificationEmail"
+              @click="resendVerificationEmail"
+          >
             ¿No has recibido nada? Reenviar enlace
           </button>
+
+          <p
+              v-if="authStore.error"
+              class="form-message error-message"
+          >
+            {{ authStore.error }}
+          </p>
+
+          <p
+              v-else-if="authStore.feedback"
+              class="form-message success-message"
+          >
+            {{ authStore.feedback }}
+          </p>
 
           <!-- INFO -->
           <div class="expiration-info">
@@ -185,6 +244,16 @@ const router = useRouter()
   margin-bottom: 32px;
 }
 
+.email-target {
+  background: rgba(71, 102, 73, 0.08);
+  border-radius: 12px;
+  color: var(--color-primary);
+  font-weight: 700;
+  margin: -16px 0 28px;
+  padding: 12px;
+  word-break: break-word;
+}
+
 /* BUTTON */
 
 .open-mail-button {
@@ -205,6 +274,13 @@ const router = useRouter()
 
 .open-mail-button:hover {
   transform: translateY(-2px);
+}
+
+.open-mail-button:disabled,
+.resend-button:disabled {
+  cursor: not-allowed;
+  opacity: .65;
+  transform: none;
 }
 
 .resend-button {

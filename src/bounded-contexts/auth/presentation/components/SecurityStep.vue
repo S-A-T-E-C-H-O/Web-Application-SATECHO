@@ -11,7 +11,10 @@ defineProps({
   passwordRules: Object,
   isPasswordStrong: Boolean,
   passwordsMatch: Boolean,
-  canSubmit: Boolean
+  canSubmit: Boolean,
+  isSubmitting: Boolean,
+  submitError: String,
+  submitFeedback: String
 })
 
 const emit = defineEmits([
@@ -140,6 +143,21 @@ const emit = defineEmits([
               </span>
             </label>
           </div>
+
+          <p
+              v-if="submitError"
+              class="form-message error-message"
+          >
+            {{ submitError }}
+          </p>
+
+          <p
+              v-else-if="submitFeedback"
+              class="form-message success-message"
+          >
+            {{ submitFeedback }}
+          </p>
+
           <!-- ACTIONS -->
           <div class="form-actions">
             <button
@@ -155,10 +173,10 @@ const emit = defineEmits([
             <button
                 type="button"
                 class="continue-button"
-                :disabled="!canSubmit"
+                :disabled="!canSubmit || isSubmitting"
                 @click="emit('submit')"
             >
-              Crear Cuenta
+              {{ isSubmitting ? 'Creando...' : 'Crear Cuenta' }}
               <span class="material-symbols-outlined">
                 rocket_launch
               </span>
