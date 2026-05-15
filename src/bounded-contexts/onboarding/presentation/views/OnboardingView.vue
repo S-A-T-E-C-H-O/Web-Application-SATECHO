@@ -147,7 +147,7 @@ const saveForLater = () => {
 const completeOnboarding = async () => {
   try {
     await onboardingStore.complete(currentUserId.value)
-    router.push('/home')
+    router.push('/dashboard')
   } catch {
     return
   }
@@ -157,7 +157,7 @@ onMounted(async () => {
   const result = await onboardingStore.loadStatus(currentUserId.value)
 
   if (result.completed) {
-    router.push('/home')
+    router.push('/dashboard')
   }
 })
 </script>
