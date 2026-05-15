@@ -14,11 +14,10 @@ defineProps({
         class="hero-section"
     >
       <h2>
-        Bienvenido a SATECHO
+        {{ $t('auth.welcomeRegister') }}
       </h2>
       <p>
-        Selecciona el perfil que mejor describa tu actividad
-        para personalizar tu experiencia de gestión inteligente.
+        {{ $t('auth.welcomeRegisterDesc') }}
       </p>
     </div>
   </Transition>
@@ -27,7 +26,7 @@ defineProps({
   <div class="progress-section">
     <div class="progress-top">
               <span class="step-counter">
-                PASO {{ currentStep }} DE 3
+                {{ $t('auth.stepOf', { current: currentStep }) }}
               </span>
       <Transition
           name="fade-slide"

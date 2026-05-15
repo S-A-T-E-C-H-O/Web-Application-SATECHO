@@ -31,7 +31,7 @@
       <div class="content-section">
 
         <h2>
-          ¡Cuenta verificada!
+          {{ $t('auth.verified') }}
         </h2>
 
       </div>
@@ -43,7 +43,7 @@
             class="resend-button"
             @click="router.push('/onboarding')"
         >
-          Entrar al Sistema
+          {{ $t('auth.enterSystem') }}
         </button>
       </div>
 
@@ -59,7 +59,7 @@
         </span>
 
         <RouterLink to="/login">
-          Volver
+          {{ $t('general.back') }}
         </RouterLink>
 
       </div>

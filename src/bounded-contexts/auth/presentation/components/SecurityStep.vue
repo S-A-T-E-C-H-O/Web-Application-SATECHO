@@ -35,11 +35,10 @@ const emit = defineEmits([
       <div class="register-content">
         <div class="register-header">
           <h2>
-            Protege tu cuenta
+            {{ $t('auth.protectAccount') }}
           </h2>
           <p>
-            Configura tu contraseña para finalizar el proceso
-            de registro en SATECHO.
+            {{ $t('auth.protectAccountDesc') }}
           </p>
         </div>
         <form class="register-form" @submit.prevent>
@@ -47,14 +46,14 @@ const emit = defineEmits([
           <!-- PASSWORD -->
           <div class="input-group">
             <label>
-              Contraseña
+              {{ $t('auth.password') }}
             </label>
             <div class="password-wrapper">
               <input
                   :type="showPassword ? 'text' : 'password'"
                   :value="password"
                   @input="emit('update:password', $event.target.value)"
-                  placeholder="Mínimo 8 caracteres"
+                  :placeholder="$t('auth.min8')"
                   :class="{ invalid: password.length > 0 && !isPasswordStrong }"
               >
               <button
@@ -71,30 +70,30 @@ const emit = defineEmits([
             <!-- RULES -->
             <div class="password-rules">
               <span :class="{ valid: passwordRules.minLength }">
-                ✓ 8 caracteres
+                ✓ {{ $t('auth.rule8') }}
               </span>
               <span :class="{ valid: passwordRules.uppercase }">
-                ✓ Mayúscula
+                ✓ {{ $t('auth.ruleUpper') }}
               </span>
               <span :class="{ valid: passwordRules.lowercase }">
-                ✓ Minúscula
+                ✓ {{ $t('auth.ruleLower') }}
               </span>
               <span :class="{ valid: passwordRules.number }">
-                ✓ Número
+                ✓ {{ $t('auth.ruleNumber') }}
               </span>
             </div>
           </div>
           <!-- CONFIRM -->
           <div class="input-group">
             <label>
-              Confirmar Contraseña
+              {{ $t('auth.confirmPassword') }}
             </label>
             <div class="password-wrapper">
               <input
                   :type="showConfirmPassword ? 'text' : 'password'"
                   :value="confirmPassword"
                   @input="emit('update:confirmPassword', $event.target.value)"
-                  placeholder="Repite tu contraseña"
+                  :placeholder="$t('auth.confirmPasswordPlaceholder')"
                   :class="{ invalid: confirmPassword.length > 0 && !passwordsMatch }"
               >
               <button
@@ -111,7 +110,7 @@ const emit = defineEmits([
                 v-if="confirmPassword.length > 0 && !passwordsMatch"
                 class="error-text"
             >
-              Las contraseñas no coinciden
+              {{ $t('auth.passwordMismatch') }}
             </p>
           </div>
           <!-- CHECKBOXES -->
@@ -123,9 +122,8 @@ const emit = defineEmits([
                   @change="emit('update:acceptMarketing', $event.target.checked)"
               >
               <span>
-                Acepto recibir comunicaciones comerciales,
-                actualizaciones y recomendaciones.
-                <strong>(Opcional)</strong>
+                {{ $t('auth.acceptMarketing') }}
+                <strong>{{ $t('auth.optional') }}</strong>
               </span>
             </label>
             <label class="checkbox-group">
@@ -135,11 +133,11 @@ const emit = defineEmits([
                   @change="emit('update:acceptTerms', $event.target.checked)"
               >
               <span>
-                He leído y acepto los
+                {{ $t('auth.acceptTermsPrefix') }}
                 <a href="#">
-                  Términos y Condiciones
+                  {{ $t('auth.terms') }}
                 </a>
-                y la Política de Privacidad.
+                {{ $t('auth.privacy') }}.
               </span>
             </label>
           </div>
@@ -168,7 +166,7 @@ const emit = defineEmits([
               <span class="material-symbols-outlined">
                 arrow_back
               </span>
-              Atrás
+              {{ $t('general.back') }}
             </button>
             <button
                 type="button"
@@ -176,7 +174,7 @@ const emit = defineEmits([
                 :disabled="!canSubmit || isSubmitting"
                 @click="emit('submit')"
             >
-              {{ isSubmitting ? 'Creando...' : 'Crear Cuenta' }}
+              {{ isSubmitting ? $t('auth.creating') : $t('auth.createAccount') }}
               <span class="material-symbols-outlined">
                 rocket_launch
               </span>

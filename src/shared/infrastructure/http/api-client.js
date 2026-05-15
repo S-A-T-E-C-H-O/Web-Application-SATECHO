@@ -1,4 +1,5 @@
 import axios from 'axios'
+import i18n from '@/shared/i18n'
 
 const DEFAULT_API_BASE_URL = 'https://satecho-auth.free.beeceptor.com'
 
@@ -47,7 +48,7 @@ export const createApiRequest = (client) => async (config) => {
     throw {
       status,
       data: responseData,
-      message: responseMessage || 'No se pudo completar la solicitud.',
+      message: responseMessage || i18n.global.t('messages.requestFailed'),
       isNetworkError: !error.response,
     }
   }

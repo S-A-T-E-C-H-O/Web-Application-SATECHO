@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 
 import { authApi } from '@/bounded-contexts/auth/infrastructure/auth.api'
+import i18n from '@/shared/i18n'
 
 const AUTH_STORAGE_KEY = 'satecho.auth.session'
 const PENDING_VERIFICATION_KEY = 'satecho.auth.pendingVerificationEmail'
@@ -96,7 +97,7 @@ export const useAuthStore = defineStore('auth', {
       this.status = 'error'
       this.error =
         error?.message ||
-        'No pudimos comunicarnos con el servicio. Intenta nuevamente.'
+        i18n.global.t('messages.serviceUnavailable')
     },
 
     async login(credentials) {
@@ -111,24 +112,24 @@ export const useAuthStore = defineStore('auth', {
         if (!account) {
           throw {
             message:
-              'No existe una cuenta registrada con este correo. Crea una cuenta antes de iniciar sesion.',
+              i18n.global.t('messages.accountNotFound'),
           }
         }
 
         if (account.password !== credentials.password) {
-          throw { message: 'La contrasena ingresada no coincide con esta cuenta.' }
+          throw { message: i18n.global.t('messages.passwordMismatch') }
         }
 
         if (!account.verified) {
           this.pendingVerificationEmail = account.email
           window.sessionStorage.setItem(PENDING_VERIFICATION_KEY, account.email)
-          this.finishRequest('Tu cuenta aun necesita verificacion.')
+          this.finishRequest(i18n.global.t('messages.accountNeedsVerification'))
 
           return {
             user: publicUser(account),
             accessToken: null,
             requiresVerification: true,
-            message: 'Tu cuenta aun necesita verificacion.',
+            message: i18n.global.t('messages.accountNeedsVerification'),
           }
         }
 
@@ -151,7 +152,7 @@ export const useAuthStore = defineStore('auth', {
             remoteSession.accessToken ||
             `local-session-${account.id}-${Date.now()}`,
           requiresVerification: false,
-          message: remoteSession.message || 'Inicio de sesion correcto.',
+          message: remoteSession.message || i18n.global.t('messages.loginSuccess'),
         }
 
         this.user = session.user
@@ -180,7 +181,7 @@ export const useAuthStore = defineStore('auth', {
         if (existingAccount) {
           throw {
             message:
-              'Ya existe una cuenta registrada con este correo. Inicia sesion o usa otro correo.',
+              i18n.global.t('messages.accountAlreadyExists'),
           }
         }
 
@@ -210,9 +211,9 @@ export const useAuthStore = defineStore('auth', {
         } catch {
           result = {
             user: publicUser(account),
-            verificationExpiresIn: '24 horas',
+            verificationExpiresIn: '24 hours',
             message:
-              'Cuenta creada localmente. Verifica tu correo para continuar.',
+              i18n.global.t('messages.accountCreatedLocal'),
           }
         }
 
@@ -235,9 +236,9 @@ export const useAuthStore = defineStore('auth', {
 
       try {
         const result = {
-          verificationExpiresIn: '24 horas',
+          verificationExpiresIn: '24 hours',
           message:
-            'Enlace de verificacion simulado. Revisa Beeceptor para probar login, registro y confirmacion.',
+            i18n.global.t('messages.verificationLinkSimulated'),
         }
 
         this.pendingVerificationEmail = email
@@ -263,7 +264,7 @@ export const useAuthStore = defineStore('auth', {
         if (accountIndex === -1) {
           throw {
             message:
-              'No encontramos una cuenta pendiente de verificacion para este correo.',
+              i18n.global.t('messages.verificationPendingNotFound'),
           }
         }
 
@@ -281,7 +282,7 @@ export const useAuthStore = defineStore('auth', {
         } catch {
           result = {
             user: publicUser(accounts[accountIndex]),
-            message: 'Cuenta verificada correctamente.',
+            message: i18n.global.t('messages.accountVerified'),
           }
         }
 
@@ -333,7 +334,19 @@ export const useAuthStore = defineStore('auth', {
         accessToken: this.accessToken,
       }
       persistSession(session, Boolean(window.localStorage.getItem(AUTH_STORAGE_KEY)))
-      this.feedback = 'Perfil actualizado correctamente.'
+      this.feedback = i18n.global.t('messages.profileUpdated')
+    },
+
+    logout() {
+      this.user = null
+      this.accessToken = null
+      this.pendingVerificationEmail = ''
+      this.status = 'idle'
+      this.error = ''
+      this.feedback = ''
+      window.sessionStorage.removeItem(AUTH_STORAGE_KEY)
+      window.localStorage.removeItem(AUTH_STORAGE_KEY)
+      window.sessionStorage.removeItem(PENDING_VERIFICATION_KEY)
     },
   },
 })

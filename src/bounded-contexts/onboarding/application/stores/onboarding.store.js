@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 
 import { onboardingApi } from '@/bounded-contexts/onboarding/infrastructure/onboarding.api'
+import i18n from '@/shared/i18n'
 
 const ONBOARDING_DRAFT_KEY = 'satecho.onboarding.draft'
 const ONBOARDING_COMPLETED_KEY = 'satecho.onboarding.completed'
@@ -100,7 +101,7 @@ export const useOnboardingStore = defineStore('onboarding', {
       this.status = 'error'
       this.error =
         error?.message ||
-        'No pudimos comunicarnos con el servicio de onboarding.'
+        i18n.global.t('messages.onboardingServiceUnavailable')
     },
 
     persistDraft() {
@@ -108,7 +109,7 @@ export const useOnboardingStore = defineStore('onboarding', {
         ONBOARDING_DRAFT_KEY,
         JSON.stringify(this.setup)
       )
-      this.feedback = 'Guardado localmente. Podras continuar despues.'
+      this.feedback = i18n.global.t('messages.savedLocal')
     },
 
     async loadStatus(userId) {
@@ -123,13 +124,13 @@ export const useOnboardingStore = defineStore('onboarding', {
           ...defaultSetup(),
           ...localSetup.setup,
         }
-        this.finishRequest('Configuracion cargada localmente.')
+        this.finishRequest(i18n.global.t('messages.setupLoadedLocal'))
 
         return {
           completed: true,
           currentStep: 4,
           setup: this.setup,
-          message: 'Configuracion cargada localmente.',
+          message: i18n.global.t('messages.setupLoadedLocal'),
         }
       }
 
@@ -171,11 +172,11 @@ export const useOnboardingStore = defineStore('onboarding', {
         writeCompletedSetup(userId, this.setup)
         this.completed = true
         window.localStorage.removeItem(ONBOARDING_DRAFT_KEY)
-        this.finishRequest('Configuracion guardada localmente.')
+        this.finishRequest(i18n.global.t('messages.setupSavedLocal'))
 
         return {
           completed: true,
-          message: 'Configuracion guardada localmente.',
+          message: i18n.global.t('messages.setupSavedLocal'),
         }
       }
     },
