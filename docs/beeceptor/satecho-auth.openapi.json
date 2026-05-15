@@ -1,0 +1,203 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "SATECHO Auth Mock API",
+    "version": "1.0.0",
+    "description": "Contrato mock para desarrollar el bounded context de autenticacion sin backend real."
+  },
+  "servers": [
+    {
+      "url": "https://satecho-auth.free.beeceptor.com"
+    }
+  ],
+  "paths": {
+    "/auth/login": {
+      "post": {
+        "summary": "Iniciar sesion",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              },
+              "example": {
+                "email": "alex@satecho.com",
+                "password": "Satecho123",
+                "rememberMe": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Sesion iniciada",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                },
+                "example": {
+                  "accessToken": "beeceptor-auth-token",
+                  "requiresVerification": false,
+                  "message": "Inicio de sesion correcto.",
+                  "user": {
+                    "id": "usr_1001",
+                    "fullName": "Alex Martinez",
+                    "email": "alex@satecho.com",
+                    "role": "farmer"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/register": {
+      "post": {
+        "summary": "Registrar cuenta",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Cuenta creada pendiente de verificacion",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegisterResponse"
+                },
+                "example": {
+                  "message": "Cuenta creada. Revisa tu correo para verificarla.",
+                  "verificationExpiresIn": "24 horas",
+                  "user": {
+                    "id": "usr_1002",
+                    "fullName": "Alex Martinez",
+                    "email": "alex@satecho.com",
+                    "role": "farmer"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/verification/confirm": {
+      "post": {
+        "summary": "Confirmar correo",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmVerificationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Cuenta verificada",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerificationResponse"
+                },
+                "example": {
+                  "message": "Cuenta verificada correctamente."
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Token expirado"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "LoginRequest": {
+        "type": "object",
+        "required": ["email", "password"],
+        "properties": {
+          "email": { "type": "string", "format": "email" },
+          "password": { "type": "string" },
+          "rememberMe": { "type": "boolean" }
+        }
+      },
+      "RegisterRequest": {
+        "type": "object",
+        "required": ["role", "fullName", "email", "phone", "countryCode", "password", "acceptTerms"],
+        "properties": {
+          "role": { "type": "string", "enum": ["farmer", "agronomist"] },
+          "fullName": { "type": "string" },
+          "email": { "type": "string", "format": "email" },
+          "phone": { "type": "string" },
+          "countryCode": { "type": "string" },
+          "password": { "type": "string" },
+          "acceptTerms": { "type": "boolean" },
+          "acceptMarketing": { "type": "boolean" }
+        }
+      },
+      "EmailRequest": {
+        "type": "object",
+        "required": ["email"],
+        "properties": {
+          "email": { "type": "string", "format": "email" }
+        }
+      },
+      "ConfirmVerificationRequest": {
+        "type": "object",
+        "required": ["email", "token"],
+        "properties": {
+          "email": { "type": "string", "format": "email" },
+          "token": { "type": "string" }
+        }
+      },
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "fullName": { "type": "string" },
+          "email": { "type": "string", "format": "email" },
+          "role": { "type": "string" }
+        }
+      },
+      "LoginResponse": {
+        "type": "object",
+        "properties": {
+          "accessToken": { "type": "string" },
+          "requiresVerification": { "type": "boolean" },
+          "message": { "type": "string" },
+          "user": { "$ref": "#/components/schemas/User" }
+        }
+      },
+      "RegisterResponse": {
+        "type": "object",
+        "properties": {
+          "message": { "type": "string" },
+          "verificationExpiresIn": { "type": "string" },
+          "user": { "$ref": "#/components/schemas/User" }
+        }
+      },
+      "VerificationResponse": {
+        "type": "object",
+        "properties": {
+          "message": { "type": "string" },
+          "verificationExpiresIn": { "type": "string" }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,44 @@
+:root {
+    /* COLORS */
+    --color-primary: #476649;
+    --color-primary-container: #7a9a7a;
+
+    --color-background: #faf9f5;
+    --color-surface: #ffffff;
+
+    --color-text: #1a1c1a;
+    --color-text-secondary: #424841;
+
+    --color-outline: #c2c8bf;
+
+    /* TYPOGRAPHY */
+    --font-family: 'Manrope', sans-serif;
+
+    /* SHADOWS */
+    --shadow-card: 0px 4px 20px rgba(44, 52, 64, 0.05);
+
+    /* RADIUS */
+    --radius-md: 12px;
+    --radius-lg: 16px;
+
+    /* SPACING */
+    --spacing-xs: 4px;
+    --spacing-sm: 8px;
+    --spacing-md: 16px;
+    --spacing-lg: 24px;
+    --spacing-xl: 40px;
+}
+
+body {
+    font-family: var(--font-family);
+    background-color: var(--color-background);
+    color: var(--color-text);
+}
+
+.material-symbols-outlined {
+    font-variation-settings:
+            'FILL' 0,
+            'wght' 400,
+            'GRAD' 0,
+            'opsz' 24;
+}
