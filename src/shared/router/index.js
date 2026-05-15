@@ -10,6 +10,8 @@ import OnboardingView from '@/bounded-contexts/onboarding/presentation/views/Onb
 import OnboardingAgronomistView from '@/bounded-contexts/onboarding/presentation/views/OnboardingAgronomistView.vue'
 import AgriculturalDashboardView from '@/bounded-contexts/dashboard/presentation/views/AgriculturalDashboardView.vue'
 import HomeView from '@/shared/views/HomeView.vue'
+import DashboardLayout from '@/shared/layouts/DashboardLayout.vue'
+import AgronomistDashboardView from '@/bounded-contexts/dashboard/presentation/views/AgronomistDashboardView.vue'
 
 const routes = [
     {
@@ -70,6 +72,38 @@ const routes = [
         path: '/verification-expired',
         name: 'verification-expired',
         component: ExpiredVerificationLinkView,
+    },
+
+    {
+        path: '/dashboard/agronomist',
+        component: DashboardLayout,
+        children: [
+            {
+                path: '',
+                name: 'agronomist-dashboard',
+                component: AgronomistDashboardView
+            },
+            {
+                path: 'parcels',
+                name: 'agronomist-parcels',
+                component: () => import('@/bounded-contexts/dashboard/presentation/views/AgronomistParcelsView.vue')
+            },
+            {
+                path: 'parcels/:id',
+                name: 'agronomist-parcel-detail',
+                component: () => import('@/bounded-contexts/dashboard/presentation/views/ParcelDetailDashboardView.vue')
+            },
+            {
+                path: 'priority-cases',
+                name: 'agronomist-priority-cases',
+                component: () => import('@/bounded-contexts/dashboard/presentation/views/PriorityCasesView.vue')
+            },
+            {
+                path: 'priority-cases/:id',
+                name: 'agronomist-priority-case-detail',
+                component: () => import('@/bounded-contexts/dashboard/presentation/views/PriorityCaseDetailView.vue')
+            }
+        ]
     }
 ]
 
