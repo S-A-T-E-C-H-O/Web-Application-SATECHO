@@ -2,13 +2,17 @@ import axios from 'axios'
 
 const DEFAULT_API_BASE_URL = 'https://satecho-auth.free.beeceptor.com'
 
-export const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || DEFAULT_API_BASE_URL,
+export const createApiClient = (baseURL) => axios.create({
+  baseURL,
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
   },
 })
+
+export const apiClient = createApiClient(
+  import.meta.env.VITE_API_BASE_URL || DEFAULT_API_BASE_URL
+)
 
 const parseMaybeJson = (value) => {
   if (typeof value !== 'string') return value
@@ -22,9 +26,9 @@ const parseMaybeJson = (value) => {
 
 export const getApiBaseUrl = () => apiClient.defaults.baseURL
 
-export const apiRequest = async (config) => {
+export const createApiRequest = (client) => async (config) => {
   try {
-    const response = await apiClient.request(config)
+    const response = await client.request(config)
 
     return {
       ok: response.status >= 200 && response.status < 300,
@@ -48,3 +52,5 @@ export const apiRequest = async (config) => {
     }
   }
 }
+
+export const apiRequest = createApiRequest(apiClient)

@@ -163,7 +163,7 @@ const handleLogin = async () => {
     return
   }
 
-  router.push('/home')
+  router.push('/onboarding')
 }
 </script>
 
