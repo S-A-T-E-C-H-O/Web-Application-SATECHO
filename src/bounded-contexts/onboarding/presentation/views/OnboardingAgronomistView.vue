@@ -60,7 +60,7 @@ const saveForLater = () => {
 const completeOnboarding = async () => {
   try {
     await store.complete(currentUserId.value)
-    router.push('/dashboard')
+    router.push('/dashboard/agronomist')
   } catch {
     return
   }
