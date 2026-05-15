@@ -30,3 +30,16 @@ src/    <br>
 
 ```bash
 npm install
+```
+
+## Mock API with Beeceptor
+
+The auth bounded context is wired to a configurable Beeceptor mock API. By default it points to:
+
+```bash
+VITE_API_BASE_URL=https://satecho-auth.free.beeceptor.com
+```
+
+Create the Beeceptor endpoint `satecho-auth` and import `docs/beeceptor/satecho-auth.openapi.json`, or set another endpoint in a local `.env` file. The implemented endpoints are documented in `docs/beeceptor/auth-api.md`.
+
+For future bounded contexts, create one Beeceptor endpoint per context when rule limits become tight, for example `satecho-fields` or `satecho-crops`.
