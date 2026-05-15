@@ -6,6 +6,7 @@ import VerifyAccountView from '@/bounded-contexts/auth/presentation/views/Verify
 import VerifiedAccountView from '@/bounded-contexts/auth/presentation/views/VerifiedAccountView.vue'
 import ExpiredVerificationLinkView from '@/bounded-contexts/auth/presentation/views/ExpiredVerificationLinkView.vue'
 import OnboardingView from '@/bounded-contexts/onboarding/presentation/views/OnboardingView.vue'
+import OnboardingAgronomistView from '@/bounded-contexts/onboarding/presentation/views/OnboardingAgronomistView.vue'
 import HomeView from '@/shared/views/HomeView.vue'
 
 const routes = [
@@ -30,6 +31,12 @@ const routes = [
         path: '/onboarding',
         name: 'onboarding',
         component: OnboardingView,
+    },
+
+    {
+        path: '/onboarding-agronomist',
+        name: 'onboarding-agronomist',
+        component: OnboardingAgronomistView,
     },
 
     {

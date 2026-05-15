@@ -117,6 +117,8 @@ const submitRegistration = async () => {
       acceptMarketing: acceptMarketing.value,
     })
 
+    window.localStorage.setItem('userRole', selectedRole.value)
+
     router.push({
       path: '/verify-account',
       query: { email: email.value },
