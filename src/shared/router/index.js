@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
+import { useAuthStore } from '@/bounded-contexts/auth/application/stores/auth.store'
 import LoginView from '@/bounded-contexts/auth/presentation/views/LoginView.vue'
 import SelectRoleView from "@/bounded-contexts/auth/presentation/views/SelectRoleView.vue";
 import VerifyAccountView from '@/bounded-contexts/auth/presentation/views/VerifyAccountView.vue'
@@ -68,6 +69,23 @@ const routes = [
 const router = createRouter({
     history: createWebHistory(),
     routes,
+})
+
+router.beforeEach((to) => {
+    const protectedRoutes = ['onboarding', 'dashboard']
+
+    if (protectedRoutes.includes(to.name)) {
+        const authStore = useAuthStore()
+
+        if (!authStore.isAuthenticated) {
+            return {
+                name: 'login',
+                query: { redirect: to.fullPath },
+            }
+        }
+    }
+
+    return true
 })
 
 export default router
