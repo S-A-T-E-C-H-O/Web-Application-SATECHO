@@ -1,0 +1,85 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "SATECHO Operations Mock API",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "https://satecho-operations.free.beeceptor.com"
+    }
+  ],
+  "paths": {
+    "/security/events": {
+      "get": {
+        "summary": "Security events",
+        "responses": {
+          "200": {
+            "description": "Perimeter events",
+            "content": {
+              "application/json": {
+                "example": {
+                  "items": [
+                    { "id": "person-1", "type": "Person", "trust": 92, "note": "Without checking", "location": "Northern Perimeter", "time": "5 minutes ago", "device": "PIR-001", "priority": "critical", "reviewed": false, "icon": "person" },
+                    { "id": "vehicle-1", "type": "Vehicle", "trust": 88, "note": "Notification sent", "location": "Main Entrance", "time": "52 minutes ago", "device": "PIR-002", "priority": "normal", "reviewed": true, "icon": "directions_car" },
+                    { "id": "animal-1", "type": "Animal", "trust": 75, "note": "", "location": "Perimetro Sur", "time": "2 hours ago", "device": "PIR-003", "priority": "warning", "reviewed": true, "icon": "pets" }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/irrigation/actions": {
+      "post": {
+        "summary": "Register irrigation action",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "example": {
+                "zoneId": "greenhouse-a",
+                "zoneName": "Greenhouse A",
+                "action": "close",
+                "durationMinutes": 15,
+                "user": "Juan Garcia"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Action received",
+            "content": {
+              "application/json": {
+                "example": {
+                  "saved": true,
+                  "message": "Irrigation action registered."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/notification-preferences": {
+      "put": {
+        "summary": "Save notification preferences",
+        "responses": {
+          "200": {
+            "description": "Preferences saved",
+            "content": {
+              "application/json": {
+                "example": {
+                  "saved": true,
+                  "message": "Notification preferences saved."
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

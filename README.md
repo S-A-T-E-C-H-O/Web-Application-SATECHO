@@ -51,3 +51,12 @@ VITE_ONBOARDING_API_BASE_URL=https://satecho-onboarding.free.beeceptor.com
 ```
 
 Create the Beeceptor endpoint `satecho-onboarding` and import `docs/beeceptor/satecho-onboarding.openapi.json`. The implemented endpoints are documented in `docs/beeceptor/onboarding-api.md`.
+
+The agricultural dashboard uses two Beeceptor endpoints with a maximum of three rules each:
+
+```bash
+VITE_FARM_API_BASE_URL=https://satecho-farm.free.beeceptor.com
+VITE_OPERATIONS_API_BASE_URL=https://satecho-operations.free.beeceptor.com
+```
+
+Create `satecho-farm` from `docs/beeceptor/satecho-farm.openapi.json` and `satecho-operations` from `docs/beeceptor/satecho-operations.openapi.json`. The rule split is documented in `docs/beeceptor/dashboard-api.md`.
