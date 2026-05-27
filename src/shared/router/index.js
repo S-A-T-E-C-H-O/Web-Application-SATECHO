@@ -12,6 +12,7 @@ import AgriculturalDashboardView from '@/bounded-contexts/dashboard/presentation
 import HomeView from '@/shared/views/HomeView.vue'
 import DashboardLayout from '@/shared/layouts/DashboardLayout.vue'
 import AgronomistDashboardView from '@/bounded-contexts/dashboard/presentation/views/AgronomistDashboardView.vue'
+import NotFoundView from '@/shared/views/NotFoundView.vue'
 
 const routes = [
     {
@@ -104,6 +105,12 @@ const routes = [
                 component: () => import('@/bounded-contexts/dashboard/presentation/views/PriorityCaseDetailView.vue')
             }
         ]
+    },
+
+    {
+        path: '/:pathMatch(.*)*',
+        name: 'NotFound',
+        component: NotFoundView
     }
 ]
 
