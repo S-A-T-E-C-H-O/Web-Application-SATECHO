@@ -119,6 +119,12 @@ const addZone = () => {
   })
 }
 
+const removeZone = (index) => {
+  if (setup.value.irrigationZones.length <= 1) return
+
+  setup.value.irrigationZones.splice(index, 1)
+}
+
 const updateThreshold = (key, index, value) => {
   const range = [...setup.value.thresholds[key]]
   range[index] = Number(value)
@@ -265,7 +271,22 @@ onMounted(async () => {
                 :key="index"
                 class="zone-panel"
             >
-              <h3>Zone {{ index + 1 }}</h3>
+              <div class="zone-header">
+                <h3>
+                  Zone {{ index + 1 }}
+                </h3>
+                <button
+                    v-if="setup.irrigationZones.length > 1"
+                    type="button"
+                    class="remove-zone-button"
+                    @click="removeZone(index)"
+                >
+                  <span class="material-symbols-outlined">
+                    delete
+                  </span>
+                  Remove
+                </button>
+              </div>
               <div class="zone-grid">
                 <label class="field-group compact">
                   <span>Name</span>
@@ -697,6 +718,41 @@ onMounted(async () => {
   display: grid;
   font-size: 17px;
   place-items: center;
+}
+
+.zone-header{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:1rem;
+}
+
+.remove-zone-button{
+  display:flex;
+  align-items:center;
+  gap:.4rem;
+
+  border:none;
+
+  padding:.7rem 1rem;
+
+  border-radius:12px;
+
+  background:#f4e6e6;
+  color:#9f3a3a;
+
+  cursor:pointer;
+
+  transition:.3s;
+}
+
+.remove-zone-button:hover{
+  background:#e8d1d1;
+  transform:translateY(-2px);
+}
+
+.remove-zone-button .material-symbols-outlined{
+  font-size:18px;
 }
 
 .devices-grid {
