@@ -66,11 +66,10 @@ const selectCountry = (country) => {
 }
 
 const isStepTwoValid = computed(() => {
-
   return (
-      fullName.value &&
-      email.value &&
-      phone.value &&
+      fullName.value.trim() !== '' &&
+      email.value.trim() !== '' &&
+      phone.value.trim() !== '' &&
       !fullNameError.value &&
       !emailError.value &&
       !phoneError.value
@@ -126,8 +125,13 @@ const submitRegistration = async () => {
       query: { email: email.value },
     })
   } catch {
-    return
   }
+}
+
+const goToStepThree = () => {
+  if (!isStepTwoValid.value) return
+
+  currentStep.value = 3
 }
 </script>
 
@@ -199,7 +203,7 @@ const submitRegistration = async () => {
             @select-country="selectCountry"
 
             @back="currentStep = 1"
-            @continue="currentStep = 3"
+            @continue="goToStepThree"
         />
 
         <!-- STEP 3 -->
