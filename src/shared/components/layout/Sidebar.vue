@@ -42,14 +42,14 @@ const closeSession = () => {
         Priority Cases
         <span class="badge red">2</span>
       </router-link>
-      <a href="#" class="nav-link">
+      <router-link to="/dashboard/agronomist/analysis" class="nav-link" active-class="active">
         <span class="material-symbols-outlined">bar_chart</span>
         Analysis
-      </a>
-      <a href="#" class="nav-link">
+      </router-link>
+      <router-link to="/dashboard/agronomist/thresholds" class="nav-link" active-class="active">
         <span class="material-symbols-outlined">tune</span>
         Thresholds
-      </a>
+      </router-link>
       <a href="#" class="nav-link">
         <span class="material-symbols-outlined">security</span>
         Security

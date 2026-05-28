@@ -103,6 +103,16 @@ const routes = [
                 path: 'priority-cases/:id',
                 name: 'agronomist-priority-case-detail',
                 component: () => import('@/bounded-contexts/dashboard/presentation/views/PriorityCaseDetailView.vue')
+            },
+            {
+                path: '/dashboard/agronomist/analysis',
+                name: 'agronomist-analysis',
+                component: () => import('@/bounded-contexts/dashboard/presentation/views/AgronomistAnalysisView.vue')
+            },
+            {
+                path: '/dashboard/agronomist/thresholds',
+                name: 'agronomist-thresholds',
+                component: () => import('@/bounded-contexts/dashboard/presentation/views/AgronomistThresholdsView.vue')
             }
         ]
     },
