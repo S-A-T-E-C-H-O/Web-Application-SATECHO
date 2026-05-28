@@ -153,6 +153,14 @@ onMounted(() => {
     setup.value.profile.fullName = authStore.user.fullName
   }
 })
+
+const removeTemplate = (index) => {
+
+  if (templates.value.length === 1) return
+
+  templates.value.splice(index, 1)
+
+}
 </script>
 
 <template>
@@ -471,8 +479,24 @@ onMounted(() => {
             </div>
 
             <div v-for="(template, index) in templates" :key="template.id" class="template-block" :style="index < templates.length - 1 ? 'margin-bottom: 40px; padding-bottom: 40px; border-bottom: 2px dashed #eee;' : 'margin-bottom: 10px;'">
-              <h3 style="margin-bottom: 20px; color: #456c4c; font-size: 16px; font-weight: 700;" v-if="templates.length > 1">Template #{{ index + 1 }}</h3>
-              
+              <div
+                  v-if="templates.length > 1"
+                  class="template-top"
+              >
+                <h3>
+                  Template #{{ index + 1 }}
+                </h3>
+                <button
+                    type="button"
+                    class="remove-template-btn"
+                    @click="removeTemplate(index)"
+                >
+                  <span class="material-symbols-outlined">
+                    delete
+                  </span>
+                  Remove
+                </button>
+              </div>
               <div class="template-info" style="margin-bottom: 32px;">
                 <div class="template-header" style="justify-content: space-between; display: flex; width: 100%;">
                   <div style="display: flex; align-items: center; gap: 8px;">
@@ -1459,6 +1483,56 @@ onMounted(() => {
   font-size: 14px;
   color: #555;
   margin: 0;
+}
+
+.template-top{
+  display:flex;
+
+  align-items:center;
+  justify-content:space-between;
+
+  margin-bottom:20px;
+}
+
+.template-top h3{
+  color:#456c4c;
+
+  font-size:16px;
+  font-weight:700;
+}
+
+.remove-template-btn{
+  display:flex;
+
+  align-items:center;
+  gap:6px;
+
+  border:none;
+
+  background:#fff3f3;
+
+  color:#c62828;
+
+  padding:10px 14px;
+
+  border-radius:12px;
+
+  font-size:14px;
+  font-weight:600;
+
+  cursor:pointer;
+
+  transition:.25s;
+}
+
+.remove-template-btn:hover{
+  background:#ffe2e2;
+
+  transform:translateY(-1px);
+}
+
+.remove-template-btn .material-symbols-outlined{
+  font-size:18px;
 }
 
 .section-title {
