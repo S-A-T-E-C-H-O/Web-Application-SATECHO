@@ -143,8 +143,8 @@ export const useAuthStore = defineStore('auth', {
 
         const session = {
           user: {
-            ...publicUser(account),
             ...(remoteSession.user || {}),
+            ...publicUser(account),
             id: account.id,
             email: account.email,
           },
@@ -184,7 +184,6 @@ export const useAuthStore = defineStore('auth', {
               i18n.global.t('messages.accountAlreadyExists'),
           }
         }
-
         const account = {
           id: `user-${Date.now()}`,
           role: registration.role,
@@ -288,8 +287,8 @@ export const useAuthStore = defineStore('auth', {
 
         const session = {
           user: {
-            ...publicUser(accounts[accountIndex]),
             ...(result.user || {}),
+            ...publicUser(accounts[accountIndex]),
             id: accounts[accountIndex].id,
             email: accounts[accountIndex].email,
           },
@@ -337,6 +336,57 @@ export const useAuthStore = defineStore('auth', {
       this.feedback = i18n.global.t('messages.profileUpdated')
     },
 
+    changePassword(currentPassword, newPassword) {
+      const accounts = readRegisteredAccounts()
+      const accountIndex = accounts.findIndex(
+          account => account.id === this.user?.id
+      )
+      if (accountIndex === -1) {
+        throw new Error('Account not found.')
+      }
+      if (
+          accounts[accountIndex].password !==
+          currentPassword
+      ) {
+        throw new Error(
+            'Current password is incorrect.'
+        )
+      }
+      accounts[accountIndex] = {
+        ...accounts[accountIndex],
+        password: newPassword,
+        updatedAt: new Date().toISOString(),
+      }
+      writeRegisteredAccounts(accounts)
+      return true
+    },
+
+    deleteAccount() {
+      if (!this.user) return
+      const userId = this.user.id
+      // Eliminar cuenta registrada
+      const accounts = readRegisteredAccounts()
+      writeRegisteredAccounts(accounts.filter(account => account.id !== userId))
+      // Eliminar onboarding/configuración de finca
+      localStorage.removeItem(userId)
+      // Eliminar foto de perfil
+      localStorage.removeItem(`profilePhoto_${userId}`)
+      // Eliminar posibles datos futuros
+      localStorage.removeItem(`dashboard_${userId}`)
+      localStorage.removeItem(`preferences_${userId}`)
+      localStorage.removeItem(`farmSetup_${userId}`)
+      // Eliminar rol almacenado
+      localStorage.removeItem('userRole')
+      // Eliminar sesión
+      localStorage.removeItem(AUTH_STORAGE_KEY)
+      sessionStorage.removeItem(AUTH_STORAGE_KEY)
+      // Eliminar verificación pendiente
+      sessionStorage.removeItem(
+          PENDING_VERIFICATION_KEY
+      )
+      this.logout()
+    },
+
     logout() {
       this.user = null
       this.accessToken = null
@@ -348,5 +398,79 @@ export const useAuthStore = defineStore('auth', {
       window.localStorage.removeItem(AUTH_STORAGE_KEY)
       window.sessionStorage.removeItem(PENDING_VERIFICATION_KEY)
     },
+
+    async forgotPassword(email) {
+      this.startRequest()
+
+      try {
+        const accounts = readRegisteredAccounts()
+
+        const account = accounts.find(
+            (item) =>
+                normalizeEmail(item.email) ===
+                normalizeEmail(email)
+        )
+
+        await new Promise((resolve) =>
+            setTimeout(resolve, 1200)
+        )
+
+        const result = {
+          email,
+          accountExists: Boolean(account),
+          message:
+              'If an account exists with that email, recovery instructions have been sent.',
+        }
+
+        this.finishRequest(result.message)
+
+        return result
+      } catch (error) {
+        this.failRequest(error)
+        throw error
+      }
+    },
+
+    async resetPassword({ email, password }) {
+      this.startRequest()
+
+      try {
+        const accounts = readRegisteredAccounts()
+
+        const accountIndex = accounts.findIndex(
+            (account) =>
+                normalizeEmail(account.email) ===
+                normalizeEmail(email)
+        )
+
+        if (accountIndex === -1) {
+          throw {
+            message: 'Account not found.'
+          }
+        }
+
+        accounts[accountIndex] = {
+          ...accounts[accountIndex],
+          password,
+          updatedAt: new Date().toISOString(),
+        }
+
+        writeRegisteredAccounts(accounts)
+
+        const result = {
+          success: true,
+          message: 'Password updated successfully.',
+        }
+
+        this.finishRequest(result.message)
+
+        return result
+      } catch (error) {
+        this.failRequest(error)
+        throw error
+      }
+    },
+
+
   },
 })

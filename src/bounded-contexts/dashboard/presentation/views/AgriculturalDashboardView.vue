@@ -19,6 +19,11 @@ const deviceStatus = ref('all')
 const deviceType = ref('all')
 const isEditingProfile = ref(false)
 const isUserMenuOpen = ref(false)
+const passwordForm = ref({
+  currentPassword: '',
+  newPassword: '',
+  confirmPassword: '',
+})
 const profileForm = ref({
   fullName: '',
   email: '',
@@ -27,6 +32,72 @@ const profileForm = ref({
   propertyName: '',
   sizeHectares: '',
 })
+
+const userInitials = computed(() => {
+  const fullName =
+      authStore.user?.fullName ||
+      overview.value.farm.owner ||
+      ''
+
+  return fullName
+      .split(' ')
+      .filter(Boolean)
+      .slice(0, 2)
+      .map(name => name[0])
+      .join('')
+      .toUpperCase()
+})
+
+const viewSubscriptionPlan = () => {
+  goTo('subscription')
+}
+
+const downloadAccountReport = () => {
+  const report = `
+Account Report
+Name: ${authStore.user?.fullName}
+Email: ${authStore.user?.email}
+Farm: ${overview.value.farm.name}
+Devices: ${dashboardStore.devices.length}
+Security Events:
+${dashboardStore.securityEvents.length}
+  `
+  const blob = new Blob(
+      [report],
+      { type: 'text/plain' }
+  )
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = 'account-report.txt'
+  link.click()
+  URL.revokeObjectURL(url)
+  dashboardStore.setFeedback(
+      'Account report downloaded.'
+  )
+}
+
+const irrigationElapsed = (zone) => {
+  if (!zone.irrigating || !zone.irrigationStartedAt) {
+    return ''
+  }
+
+  const minutes = Math.floor(
+      (Date.now() - zone.irrigationStartedAt) / 60000
+  )
+
+  return `${minutes} min`
+}
+
+const classifyEvent = (
+    eventId,
+    classification
+) => {
+  dashboardStore.classifySecurityEvent(
+      eventId,
+      classification
+  )
+}
 
 const navigation = [
   { key: 'dashboard', label: 'Dashboard', icon: 'dashboard' },
@@ -88,6 +159,41 @@ const exportHistory = () => {
   dashboardStore.setFeedback('Irrigation history copied as CSV.')
 }
 
+const viewAllAlerts = () => {
+  goTo('security')
+}
+
+const handleAlertAction = async (alert) => {
+  if (alert.action === 'Open irrigation') {
+    const zone = zones.value.find((z) => z.name === alert.title)
+
+    if (zone) {
+      await dashboardStore.toggleIrrigation(zone.id, selectedDuration.value)
+    }
+
+    return
+  }
+
+  if (alert.action === 'View details') {
+    goTo('irrigation')
+    return
+  }
+
+  if (alert.action === 'View event') {
+    goTo('security')
+  }
+}
+
+const viewSecurityEvent = (event) => {
+  dashboardStore.setFeedback(
+      `${event.type} detected in ${event.location} (${event.trust}% confidence)`
+  )
+
+  if (!event.reviewed) {
+    dashboardStore.markSecurityReviewed(event.id)
+  }
+}
+
 const syncProfileForm = () => {
   profileForm.value = {
     fullName: authStore.user?.fullName || overview.value.farm.owner || '',
@@ -109,15 +215,94 @@ const saveProfile = () => {
   dashboardStore.updateFarmProfile(profileForm.value)
   dashboardStore.overview.farm.owner = profileForm.value.fullName
   isEditingProfile.value = false
+  dashboardStore.setFeedback(
+      'Profile updated successfully.'
+  )
+}
+
+const updatePassword = () => {
+  const {
+    currentPassword,
+    newPassword,
+    confirmPassword,
+  } = passwordForm.value
+  if (!currentPassword) {dashboardStore.setFeedback('Current password is required.')
+    return
+  }
+  if (newPassword.length < 8) {dashboardStore.setFeedback('Password must contain at least 8 characters.')
+    return
+  }
+  if (newPassword !== confirmPassword) {dashboardStore.setFeedback('Passwords do not match.')
+    return
+  }
+  if (currentPassword === newPassword) {dashboardStore.setFeedback('New password must be different from the current password.')
+    return
+  }
+  try {authStore.changePassword(currentPassword, newPassword)
+    passwordForm.value = {
+      currentPassword: '',
+      newPassword: '',
+      confirmPassword: '',
+    }
+    dashboardStore.setFeedback('Password updated successfully.')
+  } catch (error) {dashboardStore.setFeedback(error.message)}
 }
 
 const toggleUserMenu = () => {
   isUserMenuOpen.value = !isUserMenuOpen.value
 }
 
+const profilePhoto = ref('')
+onMounted(() => {
+  profilePhoto.value =
+      localStorage.getItem(
+          `profilePhoto_${authStore.user?.id}`
+      ) || ''
+})
+
+function handleProfilePhoto(event) {
+  const file = event.target.files?.[0]
+
+  if (!file) return
+
+  if (file.size > 1024 * 1024) {
+    dashboardStore.setFeedback(
+        'Please upload an image smaller than 1 MB.'
+    )
+    return
+  }
+
+  const reader = new FileReader()
+
+  reader.onload = () => {
+    profilePhoto.value = reader.result
+
+    localStorage.setItem(
+        `profilePhoto_${authStore.user.id}`,
+        reader.result
+    )
+  }
+
+  reader.readAsDataURL(file)
+}
+
 const closeSession = () => {
   authStore.logout()
   isUserMenuOpen.value = false
+  router.push('/login')
+}
+
+const viewFullHistory = () => {
+  goTo('notifications')
+}
+
+const deleteAccount = () => {
+  const confirmed = window.confirm(
+      'This action is irreversible.\n\nAll farm data, devices, irrigation history, profile information and settings will be permanently deleted.\n\nDo you want to continue?'
+  )
+  if (!confirmed) return
+  authStore.deleteAccount()
+  dashboardStore.setFeedback('Account deleted successfully.')
   router.push('/login')
 }
 
@@ -161,23 +346,6 @@ onMounted(async () => {
           {{ item.label }}
         </button>
       </nav>
-
-      <div class="sidebar-user-wrapper">
-        <button class="sidebar-user" @click="toggleUserMenu">
-          <span>JG</span>
-          <div>
-            <strong>{{ overview.farm.owner }}</strong>
-            <small>{{ overview.farm.role }}</small>
-          </div>
-          <span class="material-symbols-outlined">expand_more</span>
-        </button>
-        <div v-if="isUserMenuOpen" class="sidebar-user-menu">
-          <button class="sidebar-user-menu-item" @click="closeSession">
-            <span class="material-symbols-outlined">logout</span>
-            Log out
-          </button>
-        </div>
-      </div>
     </aside>
 
     <section class="app-panel">
@@ -185,10 +353,49 @@ onMounted(async () => {
         <span />
         <div class="topbar-actions">
           <button class="icon-button has-dot" aria-label="Notifications" @click="goTo('notifications')">
-            <span class="material-symbols-outlined">notifications</span>
+            <span class="material-symbols-outlined">
+              notifications
+            </span>
           </button>
-          <button class="avatar-button">JG</button>
-          <span class="material-symbols-outlined top-chevron">expand_more</span>
+          <div class="topbar-user">
+            <button class="topbar-user-trigger" @click="toggleUserMenu">
+              <span class="avatar-button">
+                <img v-if="profilePhoto" :src="profilePhoto" class="topbar-avatar">
+                <span v-else>
+                  {{ userInitials }}
+                </span>
+              </span>
+              <div class="user-meta">
+                <strong>
+                  {{ authStore.user?.fullName || overview.farm.owner }}
+                </strong>
+                <small>
+                  {{ authStore.user?.role || 'Farmer' }}
+                </small>
+              </div>
+              <span class="material-symbols-outlined top-chevron" :class="{ rotated: isUserMenuOpen }">
+                expand_more
+              </span>
+            </button>
+            <div v-if="isUserMenuOpen" class="topbar-dropdown">
+              <button class="dropdown-item" @click=" goTo('account'); isUserMenuOpen = false ">
+                <span class="material-symbols-outlined">
+                  person
+                </span>
+                My profile
+              </button>
+              <button class="dropdown-item" @click=" goTo('subscription'); isUserMenuOpen = false ">
+                <span class="material-symbols-outlined"> workspace_premium </span>
+                Subscription
+              </button>
+              <button class="dropdown-item danger" @click="closeSession">
+                <span class="material-symbols-outlined">
+                  logout
+                </span>
+                Log out
+              </button>
+            </div>
+          </div>
         </div>
       </header>
 
@@ -202,9 +409,13 @@ onMounted(async () => {
             <h1>{{ overview.farm.name }}</h1>
             <p>{{ overview.farm.subtitle }}</p>
           </div>
-          <button class="outline-button" @click="dashboardStore.loadDashboard">
-            <span class="material-symbols-outlined">sync</span>
-            Update
+          <button class="outline-button" @click="dashboardStore.loadDashboard" :disabled="dashboardStore.status === 'loading'">
+            <span class="material-symbols-outlined">
+              {{ dashboardStore.status === 'loading' ? 'hourglass_top' : 'sync' }}
+            </span>
+            {{ dashboardStore.status === 'loading'
+              ? 'Updating...'
+              : 'Update' }}
           </button>
         </div>
 
@@ -228,7 +439,8 @@ onMounted(async () => {
               <h2><span class="material-symbols-outlined warning">warning</span> Critical alerts now</h2>
               <p><strong>1 critical zone</strong> and <strong>1 under care</strong></p>
             </div>
-            <button class="link-button">View all <span class="material-symbols-outlined">chevron_right</span></button>
+            <button class="link-button" @click="viewAllAlerts">View all<span class="material-symbols-outlined">chevron_right</span>
+            </button>
           </header>
           <article v-for="alert in alerts" :key="alert.id" class="alert-row">
             <span class="status-badge" :class="alert.level">{{ alert.badge }}</span>
@@ -237,7 +449,7 @@ onMounted(async () => {
               <p>{{ alert.description }}</p>
               <small>{{ alert.time }}</small>
             </div>
-            <button class="outline-button compact">{{ alert.action }}</button>
+            <button class="outline-button compact" @click="handleAlertAction(alert)">{{ alert.action }}</button>
           </article>
         </section>
 
@@ -296,7 +508,11 @@ onMounted(async () => {
                 <h2>{{ zone.name }} <span class="pill" :class="zone.status">{{ statusLabel(zone.status) }}</span></h2>
                 <p>{{ zone.crop }}</p>
               </div>
-              <span v-if="zone.irrigating" class="active-pill"><span class="material-symbols-outlined">water_drop</span> Active irrigation</span>
+              <span v-if="zone.irrigating" class="active-pill">
+                <span class="material-symbols-outlined">water_drop</span>
+                Active irrigation ·
+                {{ irrigationElapsed(zone) }}
+              </span>
             </header>
             <div class="sensor-grid">
               <div><span class="material-symbols-outlined">water_drop</span><strong>{{ zone.humidity }}%</strong><small>Humidity</small></div>
@@ -305,11 +521,24 @@ onMounted(async () => {
               <div><span class="material-symbols-outlined">device_thermostat</span><strong>{{ zone.temp }}C</strong><small>Temp</small></div>
             </div>
             <div class="watering-meta">
-              <span><span class="material-symbols-outlined">schedule</span> Last watering: {{ zone.lastWatering }}</span>
-              <span>{{ zone.waterUsed }} L used</span>
+              <span>
+                <span class="material-symbols-outlined">schedule</span>
+                Last watering:
+                {{ zone.lastWatering }} |
+              </span>
+              <span>
+                Next irrigation:
+                {{ zone.nextWatering || 'Today 18:00' }}</span>
+              <span>
+                {{ zone.waterUsed }} L used
+              </span>
+            </div>
+            <div v-if="zone.status === 'critical'" class="critical-banner">
+              Humidity below recommended threshold.
+              Irrigation is recommended.
             </div>
             <div class="irrigation-actions">
-              <select v-model.number="selectedDuration">
+              <select v-model.number="selectedDuration" :disabled="zone.irrigating">
                 <option :value="15">15 minutes</option>
                 <option :value="20">20 minutes</option>
                 <option :value="25">25 minutes</option>
@@ -378,7 +607,7 @@ onMounted(async () => {
         </div>
 
         <div class="metric-grid three">
-          <article class="status-card danger"><span class="material-symbols-outlined">person</span><strong>2</strong><p>People detection<br>(high confidence)</p></article>
+          <article class="status-card danger"><span class="material-symbols-outlined">sensors</span><strong>{{ dashboardStore.securityEvents.length }}</strong><p>Motion events detected</p></article>
           <article class="status-card warning"><span class="material-symbols-outlined">error</span><strong>{{ dashboardStore.unreadSecurityEvents }}</strong><p>Events pending review</p></article>
           <article class="status-card success"><span class="material-symbols-outlined">shield</span><strong>Active</strong><p>24/7 Monitoring</p></article>
         </div>
@@ -388,7 +617,7 @@ onMounted(async () => {
             <button :class="{ active: securityTab === 'events' }" @click="securityTab = 'events'">Events <span class="counter-dot">{{ dashboardStore.unreadSecurityEvents }}</span></button>
             <button :class="{ active: securityTab === 'settings' }" @click="securityTab = 'settings'">Configuration</button>
           </div>
-          <button class="outline-button compact" @click="dashboardStore.createSecurityEvent('Person')"><span class="material-symbols-outlined">add_alert</span> Simulate event</button>
+          <button class="outline-button compact" @click="dashboardStore.createSecurityEvent()"><span class="material-symbols-outlined">add_alert</span> Simulate motion</button>
         </div>
 
         <div v-if="securityTab === 'events'" class="security-list">
@@ -397,22 +626,41 @@ onMounted(async () => {
             <div class="event-body">
               <header>
                 <strong>{{ event.type }}</strong>
-                <span class="trust" :class="event.priority">{{ event.trust }}% trust</span>
-                <span v-if="event.note" class="small-chip">{{ event.note }}</span>
+                <span class="trust" :class="event.priority">
+                  {{ event.trust }}%
+                </span>
+                <span v-if="event.note" class="small-chip">
+                  {{ event.note }}
+                </span>
               </header>
               <p>
-                <span class="material-symbols-outlined">location_on</span> {{ event.location }}
-                <span class="material-symbols-outlined">schedule</span> {{ event.time }}
-                <span class="material-symbols-outlined">videocam</span> {{ event.device }}
+                <span class="material-symbols-outlined">location_on</span>
+                {{ event.location }}
+                <span class="material-symbols-outlined">schedule</span>
+                {{ event.time }}
+                <span class="material-symbols-outlined">sensors</span>
+                {{ event.device }}
               </p>
               <div v-if="event.priority === 'critical' && !event.reviewed" class="critical-note">
-                High priority alert: Human presence detected with high confidence
+                Motion detected in a protected area.
+                Verify the perimeter and review the event.
               </div>
             </div>
-            <button v-if="!event.reviewed" class="outline-button compact" @click="dashboardStore.markSecurityReviewed(event.id)">
-              <span class="material-symbols-outlined">check</span> Mark reviewed
-            </button>
-            <button class="icon-button"><span class="material-symbols-outlined">visibility</span></button>
+            <div v-if="!event.reviewed" class="classification-actions">
+              <button class="outline-button compact" @click="classifyEvent(event.id, 'Human')">
+                Human
+              </button>
+              <button class="outline-button compact" @click="classifyEvent(event.id, 'Animal')">
+                Animal
+              </button>
+              <button class="outline-button compact" @click="classifyEvent(event.id, 'Vehicle')">
+                Vehicle
+              </button>
+              <button class="outline-button compact" @click="classifyEvent(event.id, 'False alarm')">
+                False alarm
+              </button>
+            </div>
+            <button class="icon-button" @click="viewSecurityEvent(event)"><span class="material-symbols-outlined">visibility</span></button>
           </article>
         </div>
 
@@ -431,11 +679,17 @@ onMounted(async () => {
           </section>
 
           <section class="surface-card settings-card">
-            <h2>Types of notification</h2>
-            <p>Select which types of events should generate push notifications and WhatsApp messages.</p>
+            <h2>Motion detection notifications</h2>
+            <p>Select how the system should notify you when motion is detected by PIR sensors.</p>
             <div v-for="(enabled, key) in preferences.security.types" :key="key" class="switch-row">
-              <span>{{ key === 'person' ? 'Detection of people' : key === 'vehicle' ? 'Vehicle detection' : key === 'animal' ? 'Animal detection' : 'Strong wind' }}</span>
-              <button class="switch" :class="{ on: enabled }" @click="preferences.security.types[key] = !enabled; dashboardStore.setFeedback('Security notification type updated locally.')"><span /></button>
+              <span>
+                {{ key === 'movement' ? 'Motion detection' : key }}
+              </span>
+              <button
+                  class="switch" :class="{ on: enabled }"
+                  @click=" preferences.security.types[key] = !enabled; dashboardStore.setFeedback('Motion detection configuration updated.') ">
+                <span />
+              </button>
             </div>
           </section>
 
@@ -490,28 +744,40 @@ onMounted(async () => {
           </div>
           <table>
             <thead>
-              <tr>
-                <th>Device</th>
-                <th>Type</th>
-                <th>Zone</th>
-                <th>Status</th>
-                <th>Battery</th>
-                <th>Last reading</th>
-                <th>Actions</th>
-              </tr>
+            <tr>
+              <th>Device</th>
+              <th>Zone</th>
+              <th>Status</th>
+              <th>Battery</th>
+              <th>Health</th>
+              <th>Last reading</th>
+              <th>Actions</th>
+            </tr>
             </thead>
             <tbody>
               <tr v-for="device in filteredDevices" :key="device.id">
                 <td>
                   <div class="device-cell">
-                    <span class="device-icon material-symbols-outlined">{{ device.icon }}</span>
-                    <div><strong>{{ device.name }}</strong><small>{{ device.code }}</small></div>
+                    <span class="device-icon material-symbols-outlined">
+                      {{ device.icon }}
+                    </span>
+                    <div class="device-info">
+                      <strong>{{ device.name }}</strong>
+                      <small>
+                        {{ device.code }}
+                        • {{ device.type }}
+                      </small>
+                      <small>
+                        Firmware {{ device.firmware }}
+                        • Signal {{ device.signal }}%
+                      </small>
+                    </div>
                   </div>
                 </td>
-                <td>{{ device.type }}</td>
                 <td>{{ device.zone }}</td>
                 <td><span class="online-chip" :class="device.status"><span class="material-symbols-outlined">{{ device.status === 'online' ? 'wifi' : 'wifi_off' }}</span>{{ device.status }}</span></td>
                 <td><span :class="{ dangerText: device.battery <= 20 }"><span class="material-symbols-outlined tiny">battery_full</span> {{ device.battery }}%</span></td>
+                <td><span class="health-chip" :class="device.health?.toLowerCase()">{{ device.health }}</span></td>
                 <td><span class="material-symbols-outlined tiny">schedule</span> {{ device.lastReading }}</td>
                 <td>
                   <div class="row-actions">
@@ -630,9 +896,17 @@ onMounted(async () => {
                 </button>
               </header>
               <div v-if="!isEditingProfile" class="profile-summary">
-                <div class="large-avatar">
-                  {{ (authStore.user?.fullName || overview.farm.owner).slice(0, 2).toUpperCase() }}
-                  <span class="material-symbols-outlined">photo_camera</span>
+                <div class="profile-avatar-container">
+                  <img v-if="profilePhoto" :src="profilePhoto" class="profile-photo">
+                  <div v-else class="large-avatar">
+                    {{ userInitials }}
+                  </div>
+                  <label class="upload-photo-btn">
+                    <span class="material-symbols-outlined">
+                      photo_camera
+                    </span>
+                    <input type="file" accept="image/*" hidden @change="handleProfilePhoto">
+                  </label>
                 </div>
                 <dl><dt>Full name</dt><dd>{{ authStore.user?.fullName || overview.farm.owner }}</dd></dl>
                 <dl><dt>Email</dt><dd>{{ authStore.user?.email || 'No email registered' }}</dd></dl>
@@ -676,10 +950,10 @@ onMounted(async () => {
               <p>Access and password management</p>
               <div class="password-grid">
                 <div class="form-stack">
-                  <label><span>Current password</span><input type="password" value="password"></label>
-                  <label><span>New password</span><input type="password"></label>
-                  <label><span>Confirm new password</span><input type="password"></label>
-                  <button class="primary-action muted">Update password</button>
+                  <label><span>Current password</span><input v-model="passwordForm.currentPassword" type="password"></label>
+                  <label><span>New password</span><input v-model="passwordForm.newPassword" type="password"></label>
+                  <label><span>Confirm new password</span><input v-model="passwordForm.confirmPassword" type="password"></label>
+                  <button type="button" class="primary-action" @click="updatePassword">Update password</button>
                 </div>
                 <div class="note-panel">
                   <strong>Password requirements:</strong>
@@ -694,22 +968,22 @@ onMounted(async () => {
           <aside class="account-side">
             <section class="surface-card mini-panel">
               <h3>ACCOUNT SUMMARY</h3>
-              <p><span class="material-symbols-outlined">workspace_premium</span><strong>Current plan<br>Premium Enterprise</strong> <button class="link-button">View plan</button></p>
+              <p><span class="material-symbols-outlined">workspace_premium</span><strong>Current plan<br>Premium Enterprise</strong> <button class="link-button" @click="viewSubscriptionPlan">View plan</button></p>
               <p><span class="material-symbols-outlined">calendar_month</span><strong>Member since<br>March, 2026</strong></p>
               <p><span class="material-symbols-outlined">sensors</span><strong>Active devices<br>{{ dashboardStore.onlineDevices }} / {{ dashboardStore.devices.length }}</strong></p>
-              <button class="secondary-wide">Download account report</button>
+              <button class="secondary-wide" @click="downloadAccountReport">Download account report</button>
             </section>
             <section class="surface-card mini-panel">
               <h3>RECENT ACTIVITY</h3>
               <p><span class="material-symbols-outlined outlined">login</span><strong>Login</strong><small>2 hours ago - Bogota, CO</small></p>
               <p><span class="material-symbols-outlined outlined">settings</span><strong>Updated profile</strong><small>2 days ago</small></p>
               <p><span class="material-symbols-outlined outlined">password</span><strong>Password change</strong><small>1 month ago</small></p>
-              <button class="link-button">View full history</button>
+              <button class="link-button" @click="viewFullHistory">View full history</button>
             </section>
             <section class="danger-zone">
               <strong>Danger zone</strong>
               <p>Deleting your account will permanently erase all your agricultural data and settings.</p>
-              <button>Delete my account</button>
+              <button @click="deleteAccount">Delete my account</button>
             </section>
           </aside>
         </div>
@@ -736,6 +1010,8 @@ onMounted(async () => {
   padding: 22px 8px 0;
   position: sticky;
   top: 0;
+  left: 0;
+  height: 100vh;
 }
 
 .brand-button,
@@ -913,6 +1189,88 @@ td,
   display: flex;
   align-items: center;
   gap: 14px;
+}
+
+.topbar-user {
+  position: relative;
+}
+
+.topbar-user-trigger {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.topbar-avatar {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.profile-photo {
+  width: 96px;
+  height: 96px;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.user-meta {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+}
+
+.user-meta strong {
+  font-size: 0.9rem;
+}
+
+.user-meta small {
+  font-size: 0.75rem;
+  opacity: 0.7;
+}
+
+.topbar-dropdown {
+  position: absolute;
+  top: calc(100% + 12px);
+  right: 0;
+  min-width: 220px;
+  background: white;
+  border-radius: 14px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 20px 40px rgba(0,0,0,.12);
+  overflow: hidden;
+  z-index: 100;
+}
+
+.dropdown-item {
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.dropdown-item:hover {
+  background: #f5f7fa;
+}
+
+.dropdown-item.danger {
+  color: #dc2626;
+}
+
+.top-chevron {
+  transition: transform .2s ease;
+}
+
+.top-chevron.rotated {
+  transform: rotate(180deg);
 }
 
 .icon-button,
@@ -1212,6 +1570,52 @@ td,
 .mini-panel small {
   color: #667085;
   display: block;
+}
+
+.health-chip {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.health-chip.healthy {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+}
+
+.health-chip.warning {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+}
+
+.health-chip.critical {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+.device-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.device-info strong {
+  font-size: 0.95rem;
+}
+
+.device-info small {
+  color: #6b7280;
+  font-size: 0.75rem;
+}
+
+.critical-banner {
+  margin: 12px 0;
+  padding: 12px;
+  border-radius: 10px;
+  background: rgba(239, 68, 68, 0.12);
+  color: #dc2626;
+  font-weight: 600;
 }
 
 .dot-label {

@@ -80,6 +80,9 @@ const buildDevicesFromSetup = (setup) => {
         zone: zone.name,
         status: 'online',
         battery: Math.max(45, 92 - index * 7),
+        signal: Math.max(70, 100 - index * 3),
+        firmware: '1.0.0',
+        health: 'healthy',
         lastReading: `${index} min ago`,
         icon: 'water_drop',
       })
@@ -95,6 +98,9 @@ const buildDevicesFromSetup = (setup) => {
         zone: zone.name,
         status: 'online',
         battery: 100,
+        signal: 95,
+        firmware: '1.0.0',
+        health: 'healthy',
         lastReading: '30 sec ago',
         icon: 'valve',
       })
@@ -111,6 +117,9 @@ const buildDevicesFromSetup = (setup) => {
       zone: setup.property.location || 'Central',
       status: 'online',
       battery: 68,
+      signal: 88,
+      firmware: '1.2.1',
+      health: 'healthy',
       lastReading: '5 min ago',
       icon: 'air',
     })
@@ -125,8 +134,11 @@ const buildDevicesFromSetup = (setup) => {
       zone: 'Main Perimeter',
       status: 'online',
       battery: 100,
+      signal: 97,
+      firmware: '1.0.0',
+      health: 'healthy',
       lastReading: 'Live',
-      icon: 'videocam',
+      icon: 'sensors',
     })
   }
 
@@ -154,11 +166,12 @@ const buildAlertsFromZones = (zones, thresholds) => {
 
 const fallbackOverview = {
   farm: {
-    name: 'La Esperanza Farm',
-    subtitle: 'Overview of soil and irrigation monitoring',
-    owner: 'Juan Garcia',
+    name: '-',
+    subtitle: 'Smart irrigation and security monitoring',
+    owner: '-',
     role: 'Farmer',
   },
+
   metrics: [
     {
       key: 'water',
@@ -169,27 +182,28 @@ const fallbackOverview = {
     },
     {
       key: 'irrigation',
-      label: 'Irrigation today',
+      label: 'Irrigation cycles',
       value: '8',
-      detail: 'Last 45 minutes ago',
+      detail: 'Last cycle 45 minutes ago',
       icon: 'play_circle',
     },
     {
-      key: 'resolved',
-      label: 'Alerts resolved',
-      value: '12',
-      detail: 'All criticisms addressed',
-      icon: 'check_circle',
+      key: 'security',
+      label: 'Motion events',
+      value: '4',
+      detail: '1 event pending review',
+      icon: 'sensors',
     },
     {
       key: 'devices',
-      label: 'Devices',
+      label: 'Connected devices',
       value: '18/20',
-      detail: '90% active network',
+      detail: '90% network availability',
       icon: 'developer_board',
       progress: 90,
     },
   ],
+
   alerts: [
     {
       id: 'alert-1',
@@ -205,29 +219,30 @@ const fallbackOverview = {
       level: 'attention',
       badge: 'ATTENTION',
       title: 'Greenhouse A',
-      description: 'High EC: 1.8 mS/cm (recommended maximum: 1.5)',
+      description: 'Electrical conductivity above recommended threshold',
       time: '15 minutes ago',
-      action: 'View details',
+      action: 'Review zone',
     },
     {
       id: 'alert-3',
       level: 'attention',
       badge: 'ATTENTION',
       title: 'Southern Sector',
-      description: 'Low humidity: 58% (minimum recommended: 65%)',
+      description: 'Humidity approaching minimum threshold',
       time: '30 minutes ago',
-      action: 'Open irrigation',
+      action: 'Review irrigation',
     },
     {
       id: 'alert-4',
       level: 'info',
       badge: 'INFO',
       title: 'Northern Perimeter',
-      description: 'Movement detected - Confidence: 87%',
+      description: 'Motion detected by PIR sensor',
       time: '1 hour ago',
-      action: 'View event',
+      action: 'Review event',
     },
   ],
+
   zones: [
     {
       id: 'north',
@@ -240,6 +255,7 @@ const fallbackOverview = {
       temp: 24,
       waterUsed: 450,
       lastWatering: 'Today 08:30',
+      irrigating: false,
     },
     {
       id: 'south',
@@ -252,6 +268,7 @@ const fallbackOverview = {
       temp: 22,
       waterUsed: 580,
       lastWatering: 'Today 06:00',
+      irrigating: false,
     },
     {
       id: 'greenhouse-a',
@@ -265,6 +282,7 @@ const fallbackOverview = {
       waterUsed: 320,
       lastWatering: 'In progress',
       irrigating: true,
+      irrigationStartedAt: Date.now() - 600000,
     },
     {
       id: 'east',
@@ -277,19 +295,23 @@ const fallbackOverview = {
       temp: 26,
       waterUsed: 720,
       lastWatering: 'Yesterday at 6:00 PM',
+      irrigating: false,
     },
   ],
 }
 
 const fallbackHistory = [
-  ['2024-01-15 14:30', 'Northern Sector', 'Open', '15 min', '450', '(Automatic) System'],
-  ['2024-01-15 14:15', 'Greenhouse A', 'Open', 'In progress', '320', 'Juan Garcia'],
-  ['2024-01-15 08:30', 'Northern Sector', 'Close', '15 min', '450', '(Automatic) System'],
-  ['2024-01-15 08:15', 'Northern Sector', 'Open', '-', '-', '(Automatic) System'],
-  ['2024-01-15 06:20', 'Southern Sector', 'Close', '20 min', '580', '(Automatic) System'],
-  ['2024-01-15 06:00', 'Southern Sector', 'Open', '-', '-', '(Automatic) System'],
-  ['2024-01-14 18:25', 'East Plot', 'Close', '25 min', '720', 'Juan Garcia'],
-  ['2024-01-14 18:00', 'East Plot', 'Open', '-', '-', 'Juan Garcia'],
+  ['2026-06-08 06:00', 'Tomato Zone', 'Open', '20 min', '420', '(Automatic) System'],
+  ['2026-06-08 06:20', 'Tomato Zone', 'Close', '20 min', '420', '(Automatic) System'],
+  ['2026-06-08 07:15', 'Lettuce Zone', 'Open', '15 min', '280', '(Automatic) System'],
+  ['2026-06-08 07:30', 'Lettuce Zone', 'Close', '15 min', '280', '(Automatic) System'],
+  ['2026-06-08 09:00', 'Strawberry Greenhouse', 'Open', '10 min', '190', 'Farm Manager'],
+  ['2026-06-08 09:10', 'Strawberry Greenhouse', 'Close', '10 min', '190', 'Farm Manager'],
+  ['2026-06-08 16:30', 'Corn Field', 'Open', '25 min', '610', '(Automatic) System'],
+  ['2026-06-08 16:55', 'Corn Field', 'Close', '25 min', '610', '(Automatic) System'],
+  ['2026-06-09 06:15', 'Tomato Zone', 'Open', '20 min', '430', '(Automatic) System'],
+  ['2026-06-09 06:35', 'Tomato Zone', 'Close', '20 min', '430', '(Automatic) System'],
+  ['2026-06-09 08:00', 'Strawberry Greenhouse', 'Open', 'In progress', '210', 'Farm Manager'],
 ].map(([dateTime, area, action, duration, water, user], index) => ({
   id: `history-${index}`,
   dateTime,
@@ -301,32 +323,38 @@ const fallbackHistory = [
 }))
 
 const fallbackDevices = [
-  ['North-1 Ground Sensor', 'SENS-001', 'Ground sensor', 'Northern Sector', 'online', 85, '2 min ago', 'water_drop'],
-  ['North-2 Ground Sensor', 'SENS-002', 'Ground sensor', 'Northern Sector', 'online', 72, '3 min ago', 'water_drop'],
-  ['South-1 Soil Sensor', 'SENS-003', 'Ground sensor', 'Sector Sur', 'online', 45, '1 min ago', 'water_drop'],
-  ['Main North Valve', 'VALVE-001', 'Valve controller', 'Northern Sector', 'online', 100, '30 sec ago', 'valve'],
-  ['Main South Valve', 'VALVE-002', 'Valve controller', 'Southern Sector', 'offline', 15, '2 hrs ago', 'valve'],
-  ['PIR North Perimeter', 'PIR-001', 'Passive Infrared sensor', 'Northern Perimeter', 'online', 100, 'Live', 'videocam'],
-  ['PIR Main Entrance', 'PIR-002', 'Passive Infrared sensor', 'Entrada Principal', 'online', 100, 'Live', 'videocam'],
-  ['Central Meteorological Station', 'WEATHER-001', 'Weather station', 'Central', 'online', 68, '5 min ago', 'air'],
-].map(([name, code, type, zone, status, battery, lastReading, icon]) => ({
-  id: code,
-  name,
-  code,
-  type,
-  zone,
-  status,
-  battery,
-  lastReading,
-  icon,
-}))
+  ['Tomato Zone Soil Sensor', 'SENS-001', 'Ground sensor', 'Tomato Zone', 'online', 88, '1 min ago', 'water_drop', 'v1.2.0', 96, 'Healthy'],
+  ['Lettuce Zone Soil Sensor', 'SENS-002', 'Ground sensor', 'Lettuce Zone', 'online', 73, '3 min ago', 'water_drop', 'v1.2.0', 91, 'Healthy'],
+  ['Strawberry Greenhouse Sensor', 'SENS-003', 'Ground sensor', 'Strawberry Greenhouse', 'online', 62, '2 min ago', 'water_drop', 'v1.2.0', 87, 'Healthy'],
+  ['Corn Field Sensor', 'SENS-004', 'Ground sensor', 'Corn Field', 'online', 41, '5 min ago', 'water_drop', 'v1.2.0', 80, 'Warning'],
+  ['Tomato Zone Valve', 'VALVE-001', 'Valve controller', 'Tomato Zone', 'online', 100, '30 sec ago', 'valve', 'v2.0.0', 100, 'Healthy'],
+  ['Lettuce Zone Valve', 'VALVE-002', 'Valve controller', 'Lettuce Zone', 'online', 100, '45 sec ago', 'valve', 'v2.0.0', 100, 'Healthy'],
+  ['Corn Field Valve', 'VALVE-003', 'Valve controller', 'Corn Field', 'offline', 12, '2 hrs ago', 'valve', 'v2.0.0', 15, 'Critical'],
+  ['Main PIR Sensor', 'PIR-001', 'Passive Infrared Sensor', 'North Perimeter', 'online', 95, 'Live', 'sensors', 'v1.0.0', 94, 'Healthy'],
+  ['Entrance PIR Sensor', 'PIR-002', 'Passive Infrared Sensor', 'Main Entrance', 'online', 93, 'Live', 'sensors', 'v1.0.0', 92, 'Healthy'],
+  ['Weather Station', 'WEATHER-001', 'Weather station', 'Central Area', 'online', 67, '4 min ago', 'air', 'v3.1.0', 89, 'Healthy']
+].map(([name, code, type, zone, status, battery, lastReading, icon, firmware, signal, health,]) => ({
+      id: code,
+      name,
+      code,
+      type,
+      zone,
+      status,
+      battery,
+      lastReading,
+      icon,
+      firmware,
+      signal,
+      health,
+      installedAt: '2026-01-15',
+    })
+)
 
 const fallbackSecurityEvents = [
-  ['person-1', 'Person', 92, 'Without checking', 'Northern Perimeter', '5 minutes ago', 'PIR-001', 'critical', false, 'person'],
-  ['vehicle-1', 'Vehicle', 88, 'Notification sent', 'Main Entrance', '52 minutes ago', 'PIR-002', 'normal', true, 'directions_car'],
-  ['animal-1', 'Animal', 75, '', 'Perimetro Sur', '2 hours ago', 'PIR-003', 'warning', true, 'pets'],
-  ['wind-1', 'Strong wind', 95, '', 'Invernadero A', '4 hours ago', 'SENSOR-WIND-01', 'info', true, 'air'],
-  ['person-2', 'Person', 87, 'Notification sent', 'Perimetro Este', '6 hours ago', 'PIR-004', 'normal', true, 'person'],
+  ['motion-1', 'Motion detected', 100, 'Without checking', 'Northern Perimeter', '5 minutes ago', 'PIR-001', 'critical', false, 'sensors'],
+  ['motion-2', 'Motion detected', 100, 'Notification sent', 'Main Entrance', '52 minutes ago', 'PIR-002', 'normal', true, 'sensors'],
+  ['motion-3', 'Motion detected', 100, '', 'South Perimeter', '2 hours ago', 'PIR-003', 'warning', true, 'sensors'],
+  ['motion-4', 'Motion detected', 100, '', 'Greenhouse A', '4 hours ago', 'PIR-004', 'info', true, 'sensors']
 ].map(([id, type, trust, note, location, time, device, priority, reviewed, icon]) => ({
   id,
   type,
@@ -342,12 +370,11 @@ const fallbackSecurityEvents = [
 
 const defaultNotificationPreferences = () => ({
   matrix: {
-    criticalHumidity: { push: true, whatsapp: true, sms: false, email: true },
-    humidity: { push: true, whatsapp: false, sms: false, email: true },
-    person: { push: true, whatsapp: true, sms: true, email: true },
-    vehicle: { push: true, whatsapp: true, sms: false, email: true },
-    offline: { push: true, whatsapp: false, sms: false, email: true },
-    battery: { push: false, whatsapp: false, sms: false, email: true },
+    criticalHumidity: {push: true, whatsapp: true, sms: false, email: true,},
+    humidity: {push: true, whatsapp: false, sms: false, email: true,},
+    movement: {push: true, whatsapp: true, sms: true, email: true,},
+    offline: {push: true, whatsapp: false, sms: false, email: true,},
+    battery: {push: false, whatsapp: false, sms: false, email: true,},
   },
   whatsappPhone: '+57 300 123 4567',
   dailySummary: true,
@@ -355,10 +382,7 @@ const defaultNotificationPreferences = () => ({
   security: {
     sensitivity: 70,
     types: {
-      person: true,
-      vehicle: true,
-      animal: false,
-      wind: false,
+      movement: true,
     },
     schedule: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map((day) => ({
       day,
@@ -537,7 +561,14 @@ export const useDashboardStore = defineStore('dashboard', {
 
       const nextState = !zone.irrigating
       zone.irrigating = nextState
-      zone.lastWatering = nextState ? 'In progress' : 'Just closed'
+
+      if (nextState) {
+        zone.irrigationStartedAt = Date.now()
+        zone.lastWatering = 'In progress'
+      } else {
+        zone.irrigationStartedAt = null
+        zone.lastWatering = 'Just closed'
+      }
 
       const action = {
         zoneId,
@@ -571,27 +602,32 @@ export const useDashboardStore = defineStore('dashboard', {
       if (event) {
         event.reviewed = true
         event.note = 'Reviewed'
+        event.reviewedAt = new Date().toLocaleString()
         this.setFeedback(`${event.type} event marked as reviewed.`)
       }
     },
 
-    createSecurityEvent(type = 'Person') {
+    createSecurityEvent() {
       const now = new Date()
+
       const event = {
         id: `event-${now.getTime()}`,
-        type,
-        trust: type === 'Person' ? 94 : type === 'Vehicle' ? 89 : 77,
-        note: 'Without checking',
-        location: type === 'Vehicle' ? 'Main Entrance' : 'Northern Perimeter',
+        type: 'Motion detected',
+        note: 'Pending review',
+        location: 'North Perimeter',
         time: 'Just now',
-        device: type === 'Vehicle' ? 'PIR-002' : 'PIR-001',
-        priority: type === 'Person' ? 'critical' : 'normal',
+        device: 'PIR-001',
+        priority: 'critical',
         reviewed: false,
-        icon: type === 'Vehicle' ? 'directions_car' : type === 'Animal' ? 'pets' : 'person',
+        icon: 'sensors',
+        classification: null,
       }
 
       this.securityEvents.unshift(event)
-      this.setFeedback(`${type} event created locally.`)
+
+      this.setFeedback(
+          'Motion event generated.'
+      )
     },
 
     registerDevice() {
@@ -604,6 +640,10 @@ export const useDashboardStore = defineStore('dashboard', {
         zone: 'Greenhouse A',
         status: 'online',
         battery: 100,
+        signal: 100,
+        firmware: 'v1.0.0',
+        health: 'Healthy',
+        installedAt: new Date().toISOString().split('T')[0],
         lastReading: 'Just now',
         icon: 'water_drop',
       }
@@ -639,6 +679,24 @@ export const useDashboardStore = defineStore('dashboard', {
       } catch {
         this.setFeedback('Notification preferences saved locally.')
       }
+    },
+
+    classifySecurityEvent(
+        eventId,
+        classification
+    ) {
+      const event =
+          this.securityEvents.find(
+              e => e.id === eventId
+          )
+      if (!event) return
+      event.classification =
+          classification
+      event.reviewed = true
+      event.note = 'Reviewed'
+      this.setFeedback(
+          `Event classified as ${classification}.`
+      )
     },
   },
 })

@@ -13,6 +13,10 @@ import HomeView from '@/shared/views/HomeView.vue'
 import DashboardLayout from '@/shared/layouts/DashboardLayout.vue'
 import AgronomistDashboardView from '@/bounded-contexts/dashboard/presentation/views/AgronomistDashboardView.vue'
 import NotFoundView from '@/shared/views/NotFoundView.vue'
+import ForgotPasswordView from '@/bounded-contexts/auth/presentation/views/ForgotPasswordView.vue'
+import RecoveryEmailSentView from "@/bounded-contexts/auth/presentation/views/RecoveryEmailSentView.vue";
+import ResetPasswordView from "@/bounded-contexts/auth/presentation/views/ResetPasswordView.vue";
+import PasswordUpdatedView from "@/bounded-contexts/auth/presentation/views/PasswordUpdatedView.vue";
 
 const routes = [
     {
@@ -73,6 +77,28 @@ const routes = [
         path: '/verification-expired',
         name: 'verification-expired',
         component: ExpiredVerificationLinkView,
+    },
+
+    {
+        path: '/forgot-password',
+        name: 'forgot-password',
+        component: ForgotPasswordView,
+    },
+
+    {
+        path: '/recovery-email-sent',
+        name: 'recovery-email-sent',
+        component: RecoveryEmailSentView
+    },
+    {
+        path: '/reset-password',
+        name: 'reset-password',
+        component: ResetPasswordView
+    },
+    {
+        path: '/password-updated',
+        name: 'password-updated',
+        component: PasswordUpdatedView
     },
 
     {
