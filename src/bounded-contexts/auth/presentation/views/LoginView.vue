@@ -71,9 +71,9 @@
                 {{ $t('auth.rememberMe') }}
               </span>
             </label>
-            <a href="#">
+            <RouterLink to="/forgot-password">
               {{ $t('auth.forgotPassword') }}
-            </a>
+            </RouterLink>
           </div>
 
           <p
