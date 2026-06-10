@@ -368,6 +368,27 @@ const fallbackSecurityEvents = [
   icon,
 }))
 
+const authSession =
+    JSON.parse(
+        localStorage.getItem('satecho.auth.session') ||
+        sessionStorage.getItem('satecho.auth.session') ||
+        '{}'
+    )
+
+const loadNotificationPreferences = () => {
+  try {
+    const saved = localStorage.getItem(
+        'notificationPreferences'
+    )
+
+    return saved
+        ? JSON.parse(saved)
+        : defaultNotificationPreferences()
+  } catch {
+    return defaultNotificationPreferences()
+  }
+}
+
 const defaultNotificationPreferences = () => ({
   matrix: {
     criticalHumidity: {push: true, whatsapp: true, sms: false, email: true,},
@@ -376,9 +397,26 @@ const defaultNotificationPreferences = () => ({
     offline: {push: true, whatsapp: false, sms: false, email: true,},
     battery: {push: false, whatsapp: false, sms: false, email: true,},
   },
-  whatsappPhone: '+57 300 123 4567',
+  whatsappPhone:
+      authSession?.user?.phone
+          ? `${authSession.user.countryCode || ''} ${authSession.user.phone}`
+          : '',
   dailySummary: true,
   dailyTime: '08:00 AM',
+
+  quietHours: {
+    start: '22:00',
+    end: '06:00',
+  },
+
+  alertSeverity: {
+    criticalOnly: true,
+    deviceFailures: true,
+    securityEvents: true,
+    informational: false,
+  },
+
+  emergencyContacts: [],
   security: {
     sensitivity: 70,
     types: {
@@ -411,7 +449,7 @@ export const useDashboardStore = defineStore('dashboard', {
     history: fallbackHistory,
     devices: fallbackDevices,
     securityEvents: fallbackSecurityEvents,
-    notificationPreferences: defaultNotificationPreferences(),
+    notificationPreferences: loadNotificationPreferences(),
     status: 'idle',
     error: '',
     feedback: '',
@@ -673,12 +711,12 @@ export const useDashboardStore = defineStore('dashboard', {
     },
 
     async saveNotificationPreferences() {
-      try {
-        await operationsApi.saveNotificationPreferences(this.notificationPreferences)
-        this.setFeedback('Notification preferences saved.')
-      } catch {
-        this.setFeedback('Notification preferences saved locally.')
-      }
+      localStorage.setItem(
+          'notificationPreferences',
+          JSON.stringify(this.notificationPreferences)
+      )
+      this.feedback =
+          'Notification settings updated successfully.'
     },
 
     classifySecurityEvent(

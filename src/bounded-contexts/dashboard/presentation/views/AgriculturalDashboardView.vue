@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 
 import { useAuthStore } from '@/bounded-contexts/auth/application/stores/auth.store'
 import { useDashboardStore } from '@/bounded-contexts/dashboard/application/stores/dashboard.store'
+import { PLAN_LIMITS } from '@/shared/constants/plans'
 
 const route = useRoute()
 const router = useRouter()
@@ -31,6 +32,150 @@ const profileForm = ref({
   location: '',
   propertyName: '',
   sizeHectares: '',
+})
+
+const planLabel = computed(() => {
+  const labels = {
+    basic: 'Basic',
+    pro: 'Professional',
+    enterprise: 'Enterprise',
+  }
+
+  return labels[currentPlan.value] || 'Professional'
+})
+const memberSince = computed(() => {
+  const accounts = JSON.parse(
+      localStorage.getItem(
+          'satecho.auth.accounts'
+      ) || '[]'
+  )
+
+  const account = accounts.find(
+      item => item.id === authStore.user?.id
+  )
+
+  if (!account?.createdAt) {
+    return 'Unknown'
+  }
+
+  return new Date(
+      account.createdAt
+  ).toLocaleDateString(
+      'en-US',
+      {
+        year: 'numeric',
+        month: 'long',
+      }
+  )
+})
+
+const changePlan = (plan) => {
+  if (plan === currentPlan.value) {
+    dashboardStore.setFeedback(
+        'You are already using this plan.'
+    )
+    return
+  }
+
+  const currentLimits =
+      PLAN_LIMITS[currentPlan.value]
+
+  const newLimits =
+      PLAN_LIMITS[plan]
+
+  const exceedsDevices =
+      dashboardStore.devices.length >
+      newLimits.devices
+
+  const exceedsZones =
+      overview.value.zones.length >
+      newLimits.zones
+
+  const exceedsHectares =
+      (overview.value.farm.sizeHectares || 0) >
+      newLimits.hectares
+
+  const upgrading =
+      newLimits.price >
+      currentLimits.price
+
+  let message = ''
+
+  if (upgrading) {
+    message =
+        `Upgrade to ${plan.toUpperCase()} plan?\n\n` +
+        `Monthly price: $${newLimits.price}\n\n` +
+        `Benefits:\n` +
+        `• More devices\n` +
+        `• More irrigation zones\n` +
+        `• More hectares\n` +
+        `• Advanced monitoring\n` +
+        `• Better scalability\n\n` +
+        `Do you want to continue?`
+  } else {
+    message =
+        `Downgrade to ${plan.toUpperCase()} plan?\n\n` +
+        `Current usage:\n\n` +
+        `Devices: ${dashboardStore.devices.length}/${newLimits.devices}\n` +
+        `Zones: ${overview.value.zones.length}/${newLimits.zones}\n` +
+        `Hectares: ${(overview.value.farm.sizeHectares || 0)}/${newLimits.hectares}\n\n` +
+        `Some features may become unavailable.\n\n` +
+        `Continue anyway?`
+  }
+
+  const confirmed = window.confirm(message)
+
+  if (!confirmed) return
+
+  currentPlan.value = plan
+
+  localStorage.setItem(
+      'userPlan',
+      plan
+  )
+
+  addBillingRecord(
+      plan,
+      newLimits.price
+  )
+
+  if (
+      exceedsDevices ||
+      exceedsZones ||
+      exceedsHectares
+  ) {
+    alert(
+        'Your current usage exceeds the limits of the selected plan. Existing data will remain available, but you may not be able to create additional devices, zones or properties until usage falls below the allowed limits.'
+    )
+  }
+
+  dashboardStore.setFeedback(
+      `Plan changed to ${plan.toUpperCase()} successfully.`
+  )
+}
+
+const addEmergencyContact = () => {
+  preferences.value.emergencyContacts.push({
+    id: Date.now(),
+    name: '',
+    phone: '',
+  })
+}
+const removeEmergencyContact = (id) => {
+  preferences.value.emergencyContacts =
+      preferences.value.emergencyContacts.filter(
+          contact => contact.id !== id
+      )
+}
+
+onMounted(() => {
+  if (
+      !preferences.value.whatsappPhone &&
+      authStore.user?.phone
+  ) {
+    preferences.value.whatsappPhone =
+        `${authStore.user.countryCode} ${authStore.user.phone}`
+  }
 })
 
 const userInitials = computed(() => {
@@ -118,6 +263,22 @@ const overview = computed(() => dashboardStore.overview)
 const zones = computed(() => overview.value.zones)
 const alerts = computed(() => overview.value.alerts)
 const preferences = computed(() => dashboardStore.notificationPreferences)
+if (!preferences.value.quietHours) {
+  preferences.value.quietHours = {
+    start: '22:00',
+    end: '06:00',
+  }
+}
+
+if (!preferences.value.alertSeverity) {
+  preferences.value.alertSeverity = {
+    criticalOnly: true,
+    deviceFailures: true,
+    securityEvents: true,
+    informational: false,
+  }
+}
+
 const deviceTypes = computed(() => [
   'all',
   ...new Set(dashboardStore.devices.map((device) => device.type)),
@@ -136,6 +297,53 @@ const filteredDevices = computed(() =>
   })
 )
 
+const currentPlan = ref(
+    localStorage.getItem('userPlan') || 'pro'
+)
+
+const billingHistory = ref(
+    JSON.parse(
+        localStorage.getItem('billingHistory')
+    ) || []
+)
+const addBillingRecord = (
+    plan,
+    price
+) => {
+  billingHistory.value.unshift({
+    date: new Date().toLocaleDateString(),
+    plan: plan.toUpperCase(),
+    amount: `$${price}`,
+    status: 'Paid',
+  })
+
+  localStorage.setItem(
+      'billingHistory',
+      JSON.stringify(
+          billingHistory.value
+      )
+  )
+}
+
+onMounted(() => {
+  if (billingHistory.value.length === 0) {
+    addBillingRecord(
+        currentPlan.value,
+        PLAN_LIMITS[currentPlan.value].price
+    )
+  }
+})
+
+const currentPlanLimits = computed(() => {
+  return PLAN_LIMITS[currentPlan.value]
+})
+
+const planUsage = computed(() => ({
+  hectares: overview.value.farm.sizeHectares || 0,
+  zones: overview.value.zones.length,
+  devices: dashboardStore.devices.length,
+}))
+
 const goTo = (key) => {
   router.push(`/dashboard/${key === 'dashboard' ? '' : key}`.replace(/\/$/, ''))
 }
@@ -147,7 +355,10 @@ const statusLabel = (status) => {
 }
 
 const toggleMatrix = (alertKey, channel) => {
-  preferences.value.matrix[alertKey][channel] = !preferences.value.matrix[alertKey][channel]
+  if (!preferences.value.matrix[alertKey]) return
+
+  preferences.value.matrix[alertKey][channel] =
+      !preferences.value.matrix[alertKey][channel]
 }
 
 const exportHistory = () => {
@@ -824,18 +1035,22 @@ onMounted(async () => {
             ['humidity', 'Low/high humidity', 'humidity_low'],
           ]" :key="row[0]" class="preferences-grid">
             <strong><span class="material-symbols-outlined">{{ row[2] }}</span>{{ row[1] }}</strong>
-            <button v-for="channel in ['push', 'whatsapp', 'sms', 'email']" :key="channel" class="check-dot" :class="{ on: preferences.matrix[row[0]][channel] }" @click="toggleMatrix(row[0], channel)">
+            <button v-for="channel in ['push', 'whatsapp', 'sms', 'email']" :key="channel" class="check-dot" :class="{ on: preferences.matrix?.[row[0]]?.[channel] }" @click="toggleMatrix(row[0], channel)">
               <span class="material-symbols-outlined">check</span>
             </button>
           </div>
           <div class="preference-group-label">Security</div>
-          <div v-for="row in [
-            ['person', 'Person detection', 'group'],
-            ['vehicle', 'Vehicle detection', 'directions_car'],
-          ]" :key="row[0]" class="preferences-grid">
-            <strong><span class="material-symbols-outlined">{{ row[2] }}</span>{{ row[1] }}</strong>
-            <button v-for="channel in ['push', 'whatsapp', 'sms', 'email']" :key="channel" class="check-dot" :class="{ on: preferences.matrix[row[0]][channel] }" @click="toggleMatrix(row[0], channel)">
-              <span class="material-symbols-outlined">check</span>
+          <div v-for="row in [['movement', 'Motion detection', 'motion_sensor_active'],]" :key="row[0]" class="preferences-grid">
+            <strong>
+              <span class="material-symbols-outlined">
+                {{ row[2] }}
+              </span>
+              {{ row[1] }}
+            </strong>
+            <button v-for="channel in ['push', 'whatsapp', 'sms', 'email']" :key="channel" class="check-dot" :class="{ on: preferences.matrix?.[row[0]]?.[channel] }" @click="toggleMatrix(row[0], channel)">
+              <span class="material-symbols-outlined">
+                check
+              </span>
             </button>
           </div>
           <div class="preference-group-label">Devices</div>
@@ -844,7 +1059,7 @@ onMounted(async () => {
             ['battery', 'Low battery', 'battery_alert'],
           ]" :key="row[0]" class="preferences-grid">
             <strong><span class="material-symbols-outlined">{{ row[2] }}</span>{{ row[1] }}</strong>
-            <button v-for="channel in ['push', 'whatsapp', 'sms', 'email']" :key="channel" class="check-dot" :class="{ on: preferences.matrix[row[0]][channel] }" @click="toggleMatrix(row[0], channel)">
+            <button v-for="channel in ['push', 'whatsapp', 'sms', 'email']" :key="channel" class="check-dot" :class="{ on: preferences.matrix?.[row[0]]?.[channel] }" @click="toggleMatrix(row[0], channel)">
               <span class="material-symbols-outlined">check</span>
             </button>
           </div>
@@ -854,27 +1069,348 @@ onMounted(async () => {
 
         <div v-else class="settings-stack">
           <section class="surface-card settings-card bordered">
-            <h2><span class="material-symbols-outlined">chat</span> WhatsApp settings</h2>
-            <p>Verify your number to receive alerts via WhatsApp</p>
+            <h2>
+              <span class="material-symbols-outlined">
+                chat
+              </span>
+              WhatsApp Alerts
+            </h2>
+            <p>
+              Configure the phone number used to receive critical notifications.
+            </p>
             <label class="input-line">
               <span>Phone number</span>
-              <div><input v-model="preferences.whatsappPhone"><button class="verified-button"><span class="material-symbols-outlined">check_circle</span> Verified</button></div>
+              <div class="inline-input-action">
+                <input v-model="preferences.whatsappPhone">
+                <button class="verified-button">
+                  <span class="material-symbols-outlined">
+                    check_circle
+                  </span>
+                  Verified
+                </button>
+              </div>
+            </label>
+            <div class="configuration-info">
+              <span class="material-symbols-outlined">
+                info
+              </span>
+              <p>
+                Critical alerts such as irrigation failures,
+                offline sensors and security events will be sent
+                to this number.
+              </p>
+            </div>
+          </section>
+          <section class="surface-card settings-card bordered">
+            <h2>
+              <span class="material-symbols-outlined">
+                schedule
+              </span>
+              Daily Summary
+            </h2>
+            <p>
+              Receive a daily report with farm activity and alerts.
+            </p>
+            <div class="switch-row large">
+              <div>
+                <strong>Enable daily summary</strong>
+                <p>
+                  Includes irrigation activity,
+                  sensor status,
+                  security events,
+                  and weather conditions.
+                </p>
+              </div>
+              <button class="switch" :class="{ on: preferences.dailySummary }" @click="preferences.dailySummary = !preferences.dailySummary">
+                <span />
+              </button>
+            </div>
+            <label class="input-line short">
+              <span>Delivery time</span>
+              <select v-model="preferences.dailyTime">
+                <option>06:00 AM</option>
+                <option>08:00 AM</option>
+                <option>12:00 PM</option>
+                <option>06:00 PM</option>
+                <option>09:00 PM</option>
+              </select>
             </label>
           </section>
           <section class="surface-card settings-card bordered">
-            <h2><span class="material-symbols-outlined">schedule</span> Daily summary</h2>
-            <p>Receive a summary of your property's activity every day</p>
-            <div class="switch-row large">
-              <div><strong>Activate daily summary</strong><p>You will receive an email with the status of your zones, alerts, and daily actions.</p></div>
-              <button class="switch on"><span /></button>
+            <h2>
+              <span class="material-symbols-outlined">
+                bedtime
+              </span>
+              Quiet Hours
+            </h2>
+            <p>
+              Reduce non-critical notifications during selected hours.
+            </p>
+            <div class="quiet-hours-grid">
+              <label>
+                <span>Start</span>
+                <input type="time" v-model="preferences.quietHours.start">
+              </label>
+              <label>
+                <span>End</span>
+                <input type="time" v-model="preferences.quietHours.end">
+              </label>
             </div>
-            <label class="input-line short">
-              <span>Shipping time</span>
-              <select v-model="preferences.dailyTime"><option>08:00 AM</option><option>06:00 PM</option></select>
-            </label>
+            <div class="configuration-info">
+              <span class="material-symbols-outlined">
+                notifications_active
+              </span>
+              <p>
+                Critical alerts will still be delivered immediately.
+              </p>
+            </div>
+          </section>
+          <div class="contact-list">
+            <div v-for="contact in preferences.emergencyContacts" :key="contact.id" class="contact-row">
+              <input v-model="contact.name" placeholder="Contact name">
+              <input v-model="contact.phone" placeholder="+51 999999999">
+              <button class="danger-button" @click="removeEmergencyContact(contact.id)">
+                Remove
+              </button>
+            </div>
+          </div>
+          <button class="secondary-wide" @click="addEmergencyContact">
+            Add contact
+          </button>
+          <section class="surface-card settings-card bordered">
+            <h2>
+              <span class="material-symbols-outlined">
+                warning
+              </span>
+              Alert Severity
+            </h2>
+            <p>
+              Choose which events should interrupt your workflow.
+            </p>
+            <div class="severity-list">
+              <label>
+                <input type="checkbox" v-model="preferences.alertSeverity.criticalOnly">
+                Critical alerts only
+              </label>
+              <label>
+                <input type="checkbox" v-model="preferences.alertSeverity.deviceFailures">
+                Device failures
+              </label>
+              <label>
+                <input type="checkbox" v-model="preferences.alertSeverity.securityEvents">
+                Security events
+              </label>
+              <label>
+                <input type="checkbox" v-model="preferences.alertSeverity.informational">
+                Informational notifications
+              </label>
+            </div>
           </section>
           <button class="save-button" @click="dashboardStore.saveNotificationPreferences">Save changes</button>
         </div>
+      </section>
+
+      <section v-else-if="section === 'subscription'" class="content-page subscription-page">
+        <div class="page-heading">
+          <h1>Subscription & Billing</h1>
+          <p>
+            Manage your current plan, limits and billing.
+          </p>
+        </div>
+        <div class="metric-grid three">
+          <article class="status-card success">
+      <span class="material-symbols-outlined">
+        workspace_premium
+      </span>
+            <strong>
+              {{ currentPlan.toUpperCase() }}
+            </strong>
+            <p>Current plan</p>
+          </article>
+          <article class="status-card">
+      <span class="material-symbols-outlined">
+        sensors
+      </span>
+            <strong>
+              {{ dashboardStore.devices.length }}
+            </strong>
+            <p>Connected devices</p>
+          </article>
+          <article class="status-card warning">
+      <span class="material-symbols-outlined">
+        agriculture
+      </span>
+            <strong>
+              {{ overview.farm.sizeHectares || 0 }}
+            </strong>
+            <p>Hectares managed</p>
+          </article>
+        </div>
+
+        <!-- Current Plan -->
+        <section class="surface-card table-card">
+          <div class="page-heading">
+            <h2>Current Plan</h2>
+          </div>
+          <p>
+            You are currently subscribed to the
+            <strong>{{ currentPlan.toUpperCase() }}</strong>
+            plan.
+          </p>
+          <ul class="subscription-benefits">
+            <li>
+              Maximum hectares:
+              {{ currentPlanLimits.hectares }}
+            </li>
+            <li>
+              Maximum zones:
+              {{ currentPlanLimits.zones }}
+            </li>
+            <li>
+              Maximum devices:
+              {{ currentPlanLimits.devices }}
+            </li>
+          </ul>
+        </section>
+
+        <!-- Usage Overview -->
+        <section class="surface-card table-card">
+          <div class="page-heading">
+            <h2>Usage Overview</h2>
+          </div>
+          <div class="usage-list">
+            <div class="usage-item">
+              <span>Hectares</span>
+              <strong>
+                {{ planUsage.hectares }}
+                /
+                {{ currentPlanLimits.hectares }}
+              </strong>
+              <progress
+                  :value="planUsage.hectares"
+                  :max="currentPlanLimits.hectares">
+              </progress>
+            </div>
+            <div class="usage-item">
+              <span>Zones</span>
+              <strong>
+                {{ planUsage.zones }}
+                /
+                {{ currentPlanLimits.zones }}
+              </strong>
+              <progress
+                  :value="planUsage.zones"
+                  :max="currentPlanLimits.zones">
+              </progress>
+            </div>
+            <div class="usage-item">
+              <span>Devices</span>
+              <strong>
+                {{ planUsage.devices }}
+                /
+                {{ currentPlanLimits.devices }}
+              </strong>
+              <progress
+                  :value="planUsage.devices"
+                  :max="currentPlanLimits.devices">
+              </progress>
+            </div>
+          </div>
+        </section>
+
+        <!-- Features -->
+        <section class="surface-card table-card">
+          <div class="page-heading">
+            <h2>Plan Features</h2>
+          </div>
+          <ul class="subscription-benefits">
+            <div class="feature-row">
+              <span>Security Monitoring</span>
+              <strong>
+                {{ currentPlanLimits.security ? 'Enabled' : 'Disabled' }}
+              </strong>
+            </div>
+            <div class="feature-row">
+              <span>SMS Alerts:</span>
+              <strong>
+                {{ currentPlanLimits.smsAlerts ? 'Enabled' : 'Disabled' }}
+              </strong>
+            </div>
+            <div class="feature-row">
+              <span>Maximum Users:</span>
+              <strong>
+                {{ currentPlanLimits.users }}
+              </strong>
+            </div>
+          </ul>
+        </section>
+
+        <!-- Available Plans -->
+        <section class="surface-card table-card">
+          <div class="page-heading">
+            <h2>Available Plans</h2>
+          </div>
+          <div class="plan-actions">
+            <button
+                class="plan-button"
+                :class="{ active: currentPlan === 'basic' }"
+                @click="changePlan('basic')"
+            >
+              <strong>BASIC</strong>
+              <small>$39.90 / month</small>
+            </button>
+            <button
+                class="plan-button"
+                :class="{ active: currentPlan === 'pro' }"
+                @click="changePlan('pro')"
+            >
+              <strong>Pro</strong>
+              <small>$79.99 / month</small>
+            </button>
+            <button
+                class="plan-button"
+                :class="{ active: currentPlan === 'enterprise' }"
+                @click="changePlan('enterprise')"
+            >
+              <strong>Enterprise</strong>
+              <small>$199.99 / month</small>
+            </button>
+          </div>
+        </section>
+
+        <!-- Billing History -->
+        <section class="surface-card table-card">
+          <div class="page-heading">
+            <h2>Billing History</h2>
+          </div>
+
+          <table class="billing-table">
+            <thead>
+            <tr>
+              <th>Date</th>
+              <th>Plan</th>
+              <th>Amount</th>
+              <th>Status</th>
+            </tr>
+            </thead>
+
+            <tbody>
+            <tr
+                v-for="(item,index) in billingHistory"
+                :key="index"
+            >
+              <td>{{ item.date }}</td>
+              <td>{{ item.plan }}</td>
+              <td>{{ item.amount }}</td>
+              <td>
+          <span class="status-paid">
+            {{ item.status }}
+          </span>
+              </td>
+            </tr>
+            </tbody>
+          </table>
+        </section>
       </section>
 
       <section v-else class="content-page account-page">
@@ -968,9 +1504,53 @@ onMounted(async () => {
           <aside class="account-side">
             <section class="surface-card mini-panel">
               <h3>ACCOUNT SUMMARY</h3>
-              <p><span class="material-symbols-outlined">workspace_premium</span><strong>Current plan<br>Premium Enterprise</strong> <button class="link-button" @click="viewSubscriptionPlan">View plan</button></p>
-              <p><span class="material-symbols-outlined">calendar_month</span><strong>Member since<br>March, 2026</strong></p>
-              <p><span class="material-symbols-outlined">sensors</span><strong>Active devices<br>{{ dashboardStore.onlineDevices }} / {{ dashboardStore.devices.length }}</strong></p>
+              <p>
+                <span class="material-symbols-outlined">
+                  workspace_premium
+                </span>
+                <strong>
+                  Current plan
+                  <br>
+                  {{ planLabel }}
+                  <span class="plan-badge">
+                    Active
+                  </span>
+                </strong>
+                <button class="link-button" @click="viewSubscriptionPlan">View plan</button>
+              </p>
+              <p>
+                <span class="material-symbols-outlined">
+                  calendar_month
+                </span>
+                <strong>
+                  Member since
+                  <br>
+                  {{ memberSince }}
+                </strong>
+              </p>
+              <p>
+                <span class="material-symbols-outlined">
+                  sensors
+                </span>
+                <strong>
+                  Active devices
+                  <br>
+                  {{ dashboardStore.onlineDevices }}
+                  /
+                  {{ dashboardStore.devices.length }}
+                </strong>
+              </p>
+              <p>
+                <span class="material-symbols-outlined">
+                  agriculture
+                </span>
+                <strong>
+                  Farm size
+                  <br>
+                  {{ overview.farm.sizeHectares || 0 }}
+                  ha
+                </strong>
+              </p>
               <button class="secondary-wide" @click="downloadAccountReport">Download account report</button>
             </section>
             <section class="surface-card mini-panel">
@@ -1312,6 +1892,264 @@ td,
   width: min(100%, 1060px);
   margin: 0 auto;
   padding: 32px 24px 48px;
+}
+
+.settings-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.inline-input-action {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.inline-input-action input {
+  flex: 1;
+}
+
+.configuration-info {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 10px;
+  background: #f7f9f8;
+  border: 1px solid #eceee9;
+}
+
+.configuration-info .material-symbols-outlined {
+  color: #456c4c;
+}
+
+.configuration-info p {
+  margin: 0;
+}
+
+.quiet-hours-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(180px, 1fr));
+  gap: 16px;
+}
+
+.quiet-hours-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.contact-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 12px;
+  align-items: center;
+
+  padding: 14px;
+  border: 1px solid #eceee9;
+  border-radius: 12px;
+  background: #fafbfa;
+}
+
+.contact-row input {
+  width: 100%;
+}
+
+.contact-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.severity-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.severity-list label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.settings-card h2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.settings-card h2 .material-symbols-outlined {
+  color: #456c4c;
+}
+
+.subscription-page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.subscription-page .table-card {
+  padding: 28px;
+}
+
+.subscription-page .table-card + .table-card {
+  margin-top: 24px;
+}
+
+.subscription-page .page-heading h2 {
+  font-size: 22px;
+  margin-bottom: 6px;
+}
+
+.subscription-page .page-heading {
+  margin-bottom: 20px;
+}
+
+.subscription-benefits {
+  display: grid;
+  gap: 12px;
+  margin-top: 20px;
+  padding: 0;
+  list-style: none;
+}
+
+.subscription-benefits li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 18px;
+  background: #f8faf8;
+  border: 1px solid #e4ece6;
+  border-radius: 12px;
+  font-size: 14px;
+}
+
+.subscription-benefits li strong {
+  color: #456c4c;
+  font-size: 15px;
+}
+
+.subscription-features {
+  display: grid;
+  gap: 14px;
+}
+
+.feature-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 18px;
+  border-radius: 12px;
+  background: #f8faf8;
+  border: 1px solid #e4ece6;
+}
+
+.usage-list {
+  display: grid;
+  gap: 20px;
+  margin-top: 20px;
+}
+
+.usage-item {
+  display: grid;
+  gap: 10px;
+}
+
+.usage-item span {
+  color: #5b6770;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.usage-item strong {
+  font-size: 16px;
+  color: #1f2937;
+}
+
+.usage-item progress {
+  width: 100%;
+  height: 10px;
+  border: none;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.usage-item progress::-webkit-progress-bar {
+  background: #edf2ee;
+  border-radius: 999px;
+}
+
+.usage-item progress::-webkit-progress-value {
+  background: #456c4c;
+  border-radius: 999px;
+}
+
+.billing-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.billing-table th {
+  text-align: left;
+  padding: 14px;
+  background: #f4f7f5;
+  font-weight: 700;
+}
+
+.billing-table td {
+  padding: 14px;
+  border-top: 1px solid #e5ebe7;
+}
+
+.billing-table tr:hover {
+  background: #fafcfa;
+}
+
+.status-paid {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #e8f7ee;
+  color: #2c7a4b;
+  font-weight: 600;
+}
+
+.settings-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.configuration-info {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  margin-top: 16px;
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+.quiet-hours-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.severity-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.inline-input-action {
+  display: flex;
+  gap: 12px;
+  align-items: center;
 }
 
 .page-heading {
@@ -1676,6 +2514,49 @@ dd {
   padding: 4px 8px;
 }
 
+.plan-actions {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+  margin-top: 20px;
+}
+
+.plan-button {
+  padding: 22px;
+  border-radius: 16px;
+  border: 2px solid #d9e5dc;
+  background: white;
+  cursor: pointer;
+  text-align: center;
+}
+
+.plan-button strong {
+  display: block;
+  font-size: 20px;
+  margin-bottom: 8px;
+}
+
+.plan-button small {
+  display: block;
+  color: #64748b;
+}
+
+.plan-button.active {
+  border-color: #456c4c;
+  background: #f3f8f4;
+}
+
+.plan-badge {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: #e7f5ea;
+  color: #2f7d4f;
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .quick-actions {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1871,6 +2752,36 @@ dd {
 .table-tools {
   display: flex;
   gap: 12px;
+}
+
+.table-card table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 20px;
+}
+
+.table-card th {
+  text-align: left;
+  padding: 16px;
+  background: #f7f9f8;
+  color: #456c4c;
+  font-weight: 700;
+}
+
+.table-card td {
+  padding: 16px;
+  border-top: 1px solid #eef2ef;
+}
+
+.billing-status {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: #e7f6ea;
+  color: #2f7d43;
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .select-filter {
@@ -2422,6 +3333,10 @@ td {
   background: #dedfd9;
   color: #3f4840;
   margin-top: 10px;
+}
+
+.danger-button {
+  white-space: nowrap;
 }
 
 .danger-zone {
