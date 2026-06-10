@@ -30,6 +30,7 @@ const publicUser = (account) => ({
   fullName: account.fullName,
   email: account.email,
   phone: account.phone,
+  plan: account.plan || 'basic',
   countryCode: account.countryCode,
   role: account.role,
   language: account.language || 'English',
@@ -190,6 +191,9 @@ export const useAuthStore = defineStore('auth', {
           fullName: registration.fullName,
           email,
           phone: registration.phone,
+
+          plan: 'pro',
+
           countryCode: registration.countryCode,
           password: registration.password,
           acceptTerms: registration.acceptTerms,
