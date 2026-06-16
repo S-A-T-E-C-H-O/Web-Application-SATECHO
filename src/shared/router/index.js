@@ -9,6 +9,7 @@ import ExpiredVerificationLinkView from '@/bounded-contexts/auth/presentation/vi
 import OnboardingView from '@/bounded-contexts/onboarding/presentation/views/OnboardingView.vue'
 import OnboardingAgronomistView from '@/bounded-contexts/onboarding/presentation/views/OnboardingAgronomistView.vue'
 import AgriculturalDashboardView from '@/bounded-contexts/dashboard/presentation/views/AgriculturalDashboardView.vue'
+import TelemetryDashboardView from '@/bounded-contexts/dashboard/presentation/views/TelemetryDashboardView.vue'
 import HomeView from '@/shared/views/HomeView.vue'
 import DashboardLayout from '@/shared/layouts/DashboardLayout.vue'
 import AgronomistDashboardView from '@/bounded-contexts/dashboard/presentation/views/AgronomistDashboardView.vue'
@@ -41,6 +42,12 @@ const routes = [
         path: '/dashboard/:section?',
         name: 'dashboard',
         component: AgriculturalDashboardView,
+    },
+
+    {
+        path: '/telemetry',
+        name: 'telemetry',
+        component: TelemetryDashboardView,
     },
 
     {
@@ -156,7 +163,7 @@ const router = createRouter({
 })
 
 router.beforeEach((to) => {
-    const protectedRoutes = ['onboarding', 'dashboard']
+    const protectedRoutes = ['onboarding', 'dashboard', 'telemetry']
 
     if (protectedRoutes.includes(to.name)) {
         const authStore = useAuthStore()
