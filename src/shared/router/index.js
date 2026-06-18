@@ -151,6 +151,11 @@ const routes = [
                 path: 'devices',
                 name: 'agronomist-devices',
                 component: () => import('@/bounded-contexts/dashboard/presentation/views/DeviceFleetView.vue')
+            },
+            {
+                path: 'notifications',
+                name: 'agronomist-notifications',
+                component: () => import('@/bounded-contexts/dashboard/presentation/views/NotificationsRulesView.vue')
             }
         ]
     },
