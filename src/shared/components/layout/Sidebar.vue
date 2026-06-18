@@ -60,10 +60,12 @@ const closeSession = () => {
         </span>
         Devices
       </router-link>
-      <a href="#" class="nav-link">
-        <span class="material-symbols-outlined">notifications</span>
+      <router-link to="/dashboard/agronomist/notifications" class="nav-link" active-class="active">
+        <span class="material-symbols-outlined">
+          notifications
+        </span>
         Notifications
-      </a>
+      </router-link>
     </nav>
 
     <div class="sidebar-user-wrapper">
