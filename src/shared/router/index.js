@@ -138,14 +138,19 @@ const routes = [
                 component: () => import('@/bounded-contexts/dashboard/presentation/views/PriorityCaseDetailView.vue')
             },
             {
-                path: '/dashboard/agronomist/analysis',
+                path: 'analysis',
                 name: 'agronomist-analysis',
                 component: () => import('@/bounded-contexts/dashboard/presentation/views/AgronomistAnalysisView.vue')
             },
             {
-                path: '/dashboard/agronomist/thresholds',
+                path: 'thresholds',
                 name: 'agronomist-thresholds',
                 component: () => import('@/bounded-contexts/dashboard/presentation/views/AgronomistThresholdsView.vue')
+            },
+            {
+                path: 'devices',
+                name: 'agronomist-devices',
+                component: () => import('@/bounded-contexts/dashboard/presentation/views/DeviceFleetView.vue')
             }
         ]
     },

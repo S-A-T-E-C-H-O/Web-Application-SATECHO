@@ -54,10 +54,12 @@ const closeSession = () => {
         <span class="material-symbols-outlined">security</span>
         Security
       </a>
-      <a href="#" class="nav-link">
-        <span class="material-symbols-outlined">sensors</span>
+      <router-link to="/dashboard/agronomist/devices" class="nav-link" active-class="active">
+        <span class="material-symbols-outlined">
+          sensors
+        </span>
         Devices
-      </a>
+      </router-link>
       <a href="#" class="nav-link">
         <span class="material-symbols-outlined">notifications</span>
         Notifications
