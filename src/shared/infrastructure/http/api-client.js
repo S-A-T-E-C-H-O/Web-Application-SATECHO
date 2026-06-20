@@ -15,7 +15,7 @@ const readStoredToken = () => {
   }
 }
 
-const DEFAULT_API_BASE_URL = 'http://localhost:8080'
+const DEFAULT_API_BASE_URL = 'http://agrosafe-back.eastus2.azurecontainer.io:8080'
 
 export const createApiClient = (baseURL) => {
   const client = axios.create({
