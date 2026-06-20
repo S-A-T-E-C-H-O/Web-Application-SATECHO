@@ -1,85 +1,82 @@
 import { apiRequest } from '@/shared/infrastructure/http/api-client'
 import i18n from '@/shared/i18n'
 
-const readPayload = (response) => {
-  const data = response?.data
-
-  if (data?.body && typeof data.body === 'object') return data.body
-  if (data?.data && typeof data.data === 'object') return data.data
-  if (data?.response && typeof data.response === 'object') return data.response
-
-  return data || {}
-}
-
-const buildUserFromPayload = (payload, fallback = {}) => ({
-  id: payload.user?.id || payload.id || fallback.id || null,
-  fullName:
-    payload.user?.fullName ||
-    payload.user?.name ||
-    payload.fullName ||
-    fallback.fullName ||
-    '',
-  email: payload.user?.email || payload.email || fallback.email || '',
-  role: payload.user?.role || payload.role || fallback.role || '',
-})
-
-const successMessage = (payload, fallback) =>
-  payload.message || payload.statusMessage || fallback
+const roleFromRoles = (roles = []) =>
+  roles.find((r) => r.includes('AGRONOMIST'))
+    ? 'agronomist'
+    : roles.find((r) => r.includes('FARMER'))
+    ? 'farmer'
+    : (roles[0] || '').toLowerCase()
 
 export const authApi = {
   async login(credentials) {
     const response = await apiRequest({
       method: 'POST',
-      url: '/auth/login',
-      data: credentials,
+      url: '/api/v1/authentication/sign-in',
+      data: { email: credentials.email, password: credentials.password },
     })
-    const payload = readPayload(response)
+    const data = response?.data || {}
 
     return {
-      user: buildUserFromPayload(payload, credentials),
-      accessToken:
-        payload.accessToken ||
-        payload.token ||
-        payload.jwt ||
-        payload.sessionToken ||
-        null,
-      requiresVerification: Boolean(payload.requiresVerification),
-      message: successMessage(payload, i18n.global.t('messages.loginSuccess')),
+      user: {
+        id: data.id,
+        fullName: data.fullName,
+        email: data.email,
+        role: roleFromRoles(data.roles),
+      },
+      accessToken: data.token || null,
+      requiresVerification: false,
+      message: i18n.global.t('messages.loginSuccess'),
     }
   },
 
   async register(registration) {
+    const roles = registration.role === 'agronomist' ? ['ROLE_AGRONOMIST'] : ['ROLE_FARMER']
     const response = await apiRequest({
       method: 'POST',
-      url: '/auth/register',
-      data: registration,
+      url: '/api/v1/authentication/sign-up',
+      data: {
+        fullName: registration.fullName,
+        email: registration.email,
+        password: registration.password,
+        roles,
+      },
     })
-    const payload = readPayload(response)
+    const data = response?.data || {}
 
     return {
-      user: buildUserFromPayload(payload, registration),
-      verificationExpiresIn:
-        payload.verificationExpiresIn ||
-        payload.expiresIn ||
-        '24 hours',
-      message: successMessage(
-        payload,
-        i18n.global.t('messages.authApiRegisterSuccess')
-      ),
+      user: {
+        id: data.id,
+        fullName: data.fullName || registration.fullName,
+        email: data.email || registration.email,
+        role: registration.role,
+      },
+      verificationExpiresIn: '24 hours',
+      message: i18n.global.t('messages.authApiRegisterSuccess'),
     }
   },
 
-  async confirmVerification({ email, token }) {
+  async confirmVerification({ token }) {
     const response = await apiRequest({
-      method: 'POST',
-      url: '/auth/verification/confirm',
-      data: { email, token },
+      method: 'GET',
+      url: '/api/v1/authentication/verify-account',
+      params: { token },
     })
-    const payload = readPayload(response)
+    const data = response?.data || {}
 
     return {
-      user: buildUserFromPayload(payload, { email }),
-      message: successMessage(payload, i18n.global.t('messages.accountVerified')),
+      user: { id: data.id, fullName: data.fullName, email: data.email },
+      message: i18n.global.t('messages.accountVerified'),
     }
+  },
+
+  async resendVerification(email) {
+    const response = await apiRequest({
+      method: 'POST',
+      url: '/api/v1/authentication/resend-verification',
+      data: { email },
+    })
+    const data = response?.data || {}
+    return { message: data.message || 'Verification email sent.' }
   },
 }

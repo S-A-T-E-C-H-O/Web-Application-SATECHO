@@ -154,9 +154,12 @@
 </template>
 
 <script setup>
+import { onMounted } from 'vue'
 import { useDashboardAgronomistStore } from '../../application/stores/dashboardAgronomist.store'
 
 const store = useDashboardAgronomistStore()
+
+onMounted(() => store.loadDashboard())
 </script>
 
 <style scoped>

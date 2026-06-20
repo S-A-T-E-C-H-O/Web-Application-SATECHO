@@ -1,62 +1,99 @@
-import {
-  createApiClient,
-  createApiRequest,
-} from '@/shared/infrastructure/http/api-client'
+import { apiRequest } from '@/shared/infrastructure/http/api-client'
 
-const DEFAULT_TELEMETRY_API_BASE_URL =
-  'https://satecho-telemetry.free.beeceptor.com'
+const getFirstFarmAndZone = async () => {
+  const farmsResp = await apiRequest({ method: 'GET', url: '/api/v1/farms' })
+  const farms = Array.isArray(farmsResp?.data) ? farmsResp.data : []
+  if (!farms.length) return { farmId: null, farmZones: [], zoneId: null }
 
-const telemetryClient = createApiClient(
-  import.meta.env.VITE_TELEMETRY_API_BASE_URL ||
-    DEFAULT_TELEMETRY_API_BASE_URL
-)
-
-const telemetryRequest = createApiRequest(telemetryClient)
-
-const readPayload = (response) => {
-  const data = response?.data
-  if (data?.body && typeof data.body === 'object') return data.body
-  if (data?.data && typeof data.data === 'object') return data.data
-  if (data?.response && typeof data.response === 'object') return data.response
-  return data || {}
+  const farmId = farms[0].id
+  const zonesResp = await apiRequest({ method: 'GET', url: `/api/v1/farms/${farmId}/zones` })
+  const farmZones = Array.isArray(zonesResp?.data) ? zonesResp.data : []
+  return { farmId, farmZones, zoneId: farmZones[0]?.id || null }
 }
 
 export const telemetryApi = {
-  /** Obtiene las lecturas actuales de todos los sensores de hardware (FC-28, HR202L, DHT11, DS18B20, PIR) */
   async getCurrentReadings() {
-    const response = await telemetryRequest({
+    const { zoneId } = await getFirstFarmAndZone()
+    if (!zoneId) throw new Error('No zone found')
+
+    const resp = await apiRequest({
       method: 'GET',
-      url: '/telemetry/current',
+      url: `/api/v1/telemetry/zones/${zoneId}/latest`,
     })
-    return readPayload(response)
+    const readings = Array.isArray(resp?.data) ? resp.data : []
+
+    const result = {}
+    for (const r of readings) {
+      if (r.metricType === 'SOIL_MOISTURE') result.humidity_fc28 = r.value
+      else if (r.metricType === 'ELECTRICAL_CONDUCTIVITY') result.salinity_hr202l = r.value
+      else if (r.metricType === 'AMBIENT_TEMPERATURE') result.ambient_temp_dht11 = r.value
+      else if (r.metricType === 'SOIL_TEMPERATURE') result.soil_temp_ds18b20 = r.value
+    }
+    result.security_pir_status = 'CLEAR'
+    return result
   },
 
-  /** Obtiene el historial de lecturas de salinidad para la gráfica del Acto 3 */
   async getSalinityHistory(period = '24h') {
-    const response = await telemetryRequest({
+    const { zoneId } = await getFirstFarmAndZone()
+    if (!zoneId) throw new Error('No zone found')
+
+    const hours = period === '7d' ? 168 : period === '48h' ? 48 : 24
+    const from = new Date(Date.now() - hours * 3600 * 1000).toISOString()
+
+    const resp = await apiRequest({
       method: 'GET',
-      url: '/telemetry/salinity/history',
-      params: { period },
+      url: `/api/v1/telemetry/zones/${zoneId}/history`,
+      params: { metric: 'ELECTRICAL_CONDUCTIVITY', from },
     })
-    return readPayload(response)
+    const readings = Array.isArray(resp?.data) ? resp.data : []
+
+    return readings.map((r) => ({
+      timestamp: r.timestamp
+        ? new Date(r.timestamp).toISOString().slice(0, 16).replace('T', ' ')
+        : '',
+      salinity_hr202l: r.value,
+    }))
   },
 
-  /** Obtiene los eventos del sensor PIR para el registro de seguridad del Acto 4 */
   async getPirEvents() {
-    const response = await telemetryRequest({
+    const { farmId } = await getFirstFarmAndZone()
+    if (!farmId) throw new Error('No farm found')
+
+    const resp = await apiRequest({
       method: 'GET',
-      url: '/telemetry/pir/events',
+      url: `/api/v1/farms/${farmId}/security/events`,
+      params: { limit: 20 },
     })
-    return readPayload(response)
+    const events = Array.isArray(resp?.data) ? resp.data : []
+
+    return events.map((e) => ({
+      id: String(e.id),
+      timestamp: e.detectedAt
+        ? new Date(e.detectedAt).toISOString().slice(0, 16).replace('T', ' ')
+        : '',
+      status: e.acknowledged ? 'CLEAR' : 'DETECTED',
+      zone: e.locationDescription || 'Perimeter',
+    }))
   },
 
-  /** Envía comando de activación/desactivación de riego (Acto 2) */
   async toggleIrrigation(irrigationState) {
-    const response = await telemetryRequest({
-      method: 'POST',
-      url: '/telemetry/irrigation/toggle',
-      data: irrigationState,
-    })
-    return readPayload(response)
+    const { farmId, farmZones } = await getFirstFarmAndZone()
+    if (!farmZones.length) return {}
+
+    const zone = farmZones[0]
+    const url = irrigationState.active
+      ? `/api/v1/zones/${zone.id}/irrigation/start`
+      : `/api/v1/zones/${zone.id}/irrigation/stop`
+    const data = irrigationState.active
+      ? {
+          farmId,
+          deviceId: zone.deviceId || null,
+          triggeredBy: 'user',
+          durationMinutes: 15,
+        }
+      : { flowRateLitersPerMinute: 10 }
+
+    const resp = await apiRequest({ method: 'POST', url, data })
+    return resp?.data || {}
   },
 }

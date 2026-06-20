@@ -1,15 +1,37 @@
 import axios from 'axios'
 import i18n from '@/shared/i18n'
 
-const DEFAULT_API_BASE_URL = 'https://satecho-auth.free.beeceptor.com'
+const AUTH_STORAGE_KEY = 'satecho.auth.session'
 
-export const createApiClient = (baseURL) => axios.create({
-  baseURL,
-  timeout: 10000,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-})
+const readStoredToken = () => {
+  try {
+    const raw =
+      window.sessionStorage.getItem(AUTH_STORAGE_KEY) ||
+      window.localStorage.getItem(AUTH_STORAGE_KEY)
+    if (!raw) return null
+    return JSON.parse(raw)?.accessToken || null
+  } catch {
+    return null
+  }
+}
+
+const DEFAULT_API_BASE_URL = 'http://localhost:8080'
+
+export const createApiClient = (baseURL) => {
+  const client = axios.create({
+    baseURL,
+    timeout: 10000,
+    headers: { 'Content-Type': 'application/json' },
+  })
+
+  client.interceptors.request.use((config) => {
+    const token = readStoredToken()
+    if (token) config.headers.Authorization = `Bearer ${token}`
+    return config
+  })
+
+  return client
+}
 
 export const apiClient = createApiClient(
   import.meta.env.VITE_API_BASE_URL || DEFAULT_API_BASE_URL
@@ -17,12 +39,7 @@ export const apiClient = createApiClient(
 
 const parseMaybeJson = (value) => {
   if (typeof value !== 'string') return value
-
-  try {
-    return JSON.parse(value)
-  } catch {
-    return value
-  }
+  try { return JSON.parse(value) } catch { return value }
 }
 
 export const getApiBaseUrl = () => apiClient.defaults.baseURL
@@ -30,7 +47,6 @@ export const getApiBaseUrl = () => apiClient.defaults.baseURL
 export const createApiRequest = (client) => async (config) => {
   try {
     const response = await client.request(config)
-
     return {
       ok: response.status >= 200 && response.status < 300,
       status: response.status,
@@ -44,7 +60,6 @@ export const createApiRequest = (client) => async (config) => {
       responseData?.error ||
       responseData?.detail ||
       error.message
-
     throw {
       status,
       data: responseData,

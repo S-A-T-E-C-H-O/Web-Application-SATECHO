@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia'
+import { apiRequest } from '@/shared/infrastructure/http/api-client'
 
 export const useOnboardingAgronomistStore = defineStore('onboardingAgronomist', {
   state: () => ({
@@ -74,14 +75,20 @@ export const useOnboardingAgronomistStore = defineStore('onboardingAgronomist', 
     },
     async complete(userId) {
       this.startRequest()
-      return new Promise((resolve, reject) => {
-        setTimeout(() => {
-          // Simulate success
-          this.finishRequest('Configuration completed!')
-          window.localStorage.removeItem('satecho.agronomist.draft')
-          resolve(true)
-        }, 1500)
-      })
+      try {
+        await apiRequest({
+          method: 'POST',
+          url: '/api/v1/onboarding/complete',
+          data: { role: 'AGRONOMIST', setup: this.setup },
+        })
+        window.localStorage.removeItem('satecho.agronomist.draft')
+        this.finishRequest('Configuration completed!')
+        return true
+      } catch (err) {
+        const msg = err?.response?.data?.message || 'Could not complete setup. Try again.'
+        this.failRequest(msg)
+        return false
+      }
     }
   }
 })
