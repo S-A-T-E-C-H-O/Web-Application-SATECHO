@@ -1,10 +1,6 @@
 {
   "rewrites": [
     {
-      "source": "/api/:path*",
-      "destination": "http://agrosafe-back.eastus2.azurecontainer.io:8080/api/:path*"
-    },
-    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
