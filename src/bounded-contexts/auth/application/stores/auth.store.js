@@ -111,13 +111,29 @@ export const useAuthStore = defineStore('auth', {
 
       try {
         const result = await authApi.register(registration)
-        const email = registration.email.trim().toLowerCase()
+        const user = publicUser(result.user)
+        const accessToken = result.accessToken
 
-        this.pendingVerificationEmail = email
-        window.sessionStorage.setItem(PENDING_VERIFICATION_KEY, email)
+        if (!accessToken) {
+          throw {
+            message: 'El registro se completo, pero el servidor no devolvio una sesion valida.',
+          }
+        }
+
+        this.user = user
+        this.accessToken = accessToken
+        this.pendingVerificationEmail = ''
+        window.sessionStorage.removeItem(PENDING_VERIFICATION_KEY)
+        persistSession({ user, accessToken }, false)
+        clearOtherSessionStorage(false)
         this.finishRequest(result.message)
 
-        return result
+        return {
+          ...result,
+          user,
+          accessToken,
+          requiresVerification: false,
+        }
       } catch (error) {
         this.failRequest(error)
         throw error
