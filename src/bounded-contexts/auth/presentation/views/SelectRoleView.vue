@@ -107,7 +107,7 @@ const canSubmit = computed(() => {
 
 const submitRegistration = async () => {
   try {
-    await authStore.register({
+    const session = await authStore.register({
       role: selectedRole.value,
       fullName: fullName.value,
       email: email.value,
@@ -118,12 +118,9 @@ const submitRegistration = async () => {
       acceptMarketing: acceptMarketing.value,
     })
 
-    window.localStorage.setItem('userRole', selectedRole.value)
-
-    router.push({
-      path: '/verify-account',
-      query: { email: email.value },
-    })
+    const role = session.user?.role || selectedRole.value
+    window.localStorage.setItem('userRole', role)
+    router.push(role === 'agronomist' ? '/onboarding-agronomist' : '/onboarding')
   } catch {
   }
 }

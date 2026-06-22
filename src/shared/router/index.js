@@ -71,19 +71,19 @@ const routes = [
     {
         path: '/verify-account',
         name: 'verify-account',
-        component: VerifyAccountView
+        redirect: '/login',
     },
 
     {
         path: '/email-confirmation',
         name: 'email-confirmation',
-        component: VerifiedAccountView
+        redirect: '/login',
     },
 
     {
         path: '/verification-expired',
         name: 'verification-expired',
-        component: ExpiredVerificationLinkView,
+        redirect: '/login',
     },
 
     {
@@ -173,9 +173,13 @@ const router = createRouter({
 })
 
 router.beforeEach((to) => {
-    const protectedRoutes = ['onboarding', 'dashboard', 'telemetry']
+    const isProtectedRoute =
+        to.path.startsWith('/dashboard') ||
+        to.name === 'onboarding' ||
+        to.name === 'onboarding-agronomist' ||
+        to.name === 'telemetry'
 
-    if (protectedRoutes.includes(to.name)) {
+    if (isProtectedRoute) {
         const authStore = useAuthStore()
 
         if (!authStore.isAuthenticated) {

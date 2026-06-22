@@ -51,8 +51,9 @@ export const authApi = {
         email: data.email || registration.email,
         role: registration.role,
       },
-      verificationExpiresIn: '24 hours',
-      message: i18n.global.t('messages.authApiRegisterSuccess'),
+      accessToken: data.token || data.accessToken || data.jwt || null,
+      requiresVerification: false,
+      message: data.message || i18n.global.t('messages.authApiRegisterSuccess'),
     }
   },
 
