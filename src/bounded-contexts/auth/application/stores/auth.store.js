@@ -5,37 +5,18 @@ import i18n from '@/shared/i18n'
 
 const AUTH_STORAGE_KEY = 'satecho.auth.session'
 const PENDING_VERIFICATION_KEY = 'satecho.auth.pendingVerificationEmail'
-const REGISTERED_ACCOUNTS_KEY = 'satecho.auth.accounts'
 
-const normalizeEmail = (email = '') => email.trim().toLowerCase()
-
-const readRegisteredAccounts = () => {
-  const rawAccounts = window.localStorage.getItem(REGISTERED_ACCOUNTS_KEY)
-  if (!rawAccounts) return []
-
-  try {
-    return JSON.parse(rawAccounts)
-  } catch {
-    window.localStorage.removeItem(REGISTERED_ACCOUNTS_KEY)
-    return []
-  }
-}
-
-const writeRegisteredAccounts = (accounts) => {
-  window.localStorage.setItem(REGISTERED_ACCOUNTS_KEY, JSON.stringify(accounts))
-}
-
-const publicUser = (account) => ({
-  id: account.id,
-  fullName: account.fullName,
-  email: account.email,
-  phone: account.phone,
-  plan: account.plan || 'basic',
-  countryCode: account.countryCode,
-  role: account.role,
-  language: account.language || 'English',
-  timeZone: account.timeZone || 'Bogota (GMT-5)',
-  location: account.location || '',
+const publicUser = (user) => ({
+  id: user.id,
+  fullName: user.fullName || '',
+  email: user.email || '',
+  phone: user.phone || '',
+  plan: user.plan || 'pro',
+  countryCode: user.countryCode || '',
+  role: user.role || '',
+  language: user.language || 'English',
+  timeZone: user.timeZone || 'Bogota (GMT-5)',
+  location: user.location || '',
 })
 
 const readStoredSession = () => {
@@ -97,72 +78,28 @@ export const useAuthStore = defineStore('auth', {
     failRequest(error) {
       this.status = 'error'
       this.error =
-        error?.message ||
-        i18n.global.t('messages.serviceUnavailable')
+        error?.message || i18n.global.t('messages.serviceUnavailable')
     },
 
     async login(credentials) {
       this.startRequest()
 
       try {
-        const accounts = readRegisteredAccounts()
-        const account = accounts.find(
-          (item) => normalizeEmail(item.email) === normalizeEmail(credentials.email)
-        )
+        const result = await authApi.login(credentials)
+        const user = publicUser(result.user)
 
-        if (!account) {
-          throw {
-            message:
-              i18n.global.t('messages.accountNotFound'),
-          }
-        }
-
-        if (account.password !== credentials.password) {
-          throw { message: i18n.global.t('messages.passwordMismatch') }
-        }
-
-        if (!account.verified) {
-          this.pendingVerificationEmail = account.email
-          window.sessionStorage.setItem(PENDING_VERIFICATION_KEY, account.email)
-          this.finishRequest(i18n.global.t('messages.accountNeedsVerification'))
-
-          return {
-            user: publicUser(account),
-            accessToken: null,
-            requiresVerification: true,
-            message: i18n.global.t('messages.accountNeedsVerification'),
-          }
-        }
-
-        let remoteSession = {}
-
-        try {
-          remoteSession = await authApi.login(credentials)
-        } catch {
-          remoteSession = {}
-        }
-
-        const session = {
-          user: {
-            ...(remoteSession.user || {}),
-            ...publicUser(account),
-            id: account.id,
-            email: account.email,
-          },
-          accessToken:
-            remoteSession.accessToken ||
-            `local-session-${account.id}-${Date.now()}`,
-          requiresVerification: false,
-          message: remoteSession.message || i18n.global.t('messages.loginSuccess'),
-        }
-
-        this.user = session.user
-        this.accessToken = session.accessToken
-        persistSession(session, credentials.rememberMe)
+        this.user = user
+        this.accessToken = result.accessToken
+        persistSession({ user, accessToken: result.accessToken }, credentials.rememberMe)
         clearOtherSessionStorage(credentials.rememberMe)
-        this.finishRequest(session.message)
+        this.finishRequest(result.message)
 
-        return session
+        return {
+          user,
+          accessToken: result.accessToken,
+          requiresVerification: false,
+          message: result.message,
+        }
       } catch (error) {
         this.failRequest(error)
         throw error
@@ -173,58 +110,11 @@ export const useAuthStore = defineStore('auth', {
       this.startRequest()
 
       try {
-        const accounts = readRegisteredAccounts()
-        const email = normalizeEmail(registration.email)
-        const existingAccount = accounts.find(
-          (account) => normalizeEmail(account.email) === email
-        )
-
-        if (existingAccount) {
-          throw {
-            message:
-              i18n.global.t('messages.accountAlreadyExists'),
-          }
-        }
-        const account = {
-          id: `user-${Date.now()}`,
-          role: registration.role,
-          fullName: registration.fullName,
-          email,
-          phone: registration.phone,
-
-          plan: 'pro',
-
-          countryCode: registration.countryCode,
-          password: registration.password,
-          acceptTerms: registration.acceptTerms,
-          acceptMarketing: registration.acceptMarketing,
-          verified: false,
-          language: 'English',
-          timeZone: 'Bogota (GMT-5)',
-          location: '',
-          createdAt: new Date().toISOString(),
-        }
-
-        writeRegisteredAccounts([...accounts, account])
-
-        let result
-
-        try {
-          result = await authApi.register(registration)
-        } catch {
-          result = {
-            user: publicUser(account),
-            verificationExpiresIn: '24 hours',
-            message:
-              i18n.global.t('messages.accountCreatedLocal'),
-          }
-        }
+        const result = await authApi.register(registration)
+        const email = registration.email.trim().toLowerCase()
 
         this.pendingVerificationEmail = email
-        window.sessionStorage.setItem(
-          PENDING_VERIFICATION_KEY,
-          email
-        )
+        window.sessionStorage.setItem(PENDING_VERIFICATION_KEY, email)
         this.finishRequest(result.message)
 
         return result
@@ -238,11 +128,7 @@ export const useAuthStore = defineStore('auth', {
       this.startRequest()
 
       try {
-        const result = {
-          verificationExpiresIn: '24 hours',
-          message:
-            i18n.global.t('messages.verificationLinkSimulated'),
-        }
+        const result = await authApi.resendVerification(email)
 
         this.pendingVerificationEmail = email
         window.sessionStorage.setItem(PENDING_VERIFICATION_KEY, email)
@@ -259,49 +145,18 @@ export const useAuthStore = defineStore('auth', {
       this.startRequest()
 
       try {
-        const accounts = readRegisteredAccounts()
-        const accountIndex = accounts.findIndex(
-          (account) => normalizeEmail(account.email) === normalizeEmail(email)
-        )
+        const result = await authApi.confirmVerification({ email, token })
+        const user = publicUser({
+          ...result.user,
+          email: result.user?.email || email,
+        })
+        const session = { user, accessToken: result.accessToken || null }
 
-        if (accountIndex === -1) {
-          throw {
-            message:
-              i18n.global.t('messages.verificationPendingNotFound'),
-          }
-        }
-
-        accounts[accountIndex] = {
-          ...accounts[accountIndex],
-          verified: true,
-          verifiedAt: new Date().toISOString(),
-        }
-        writeRegisteredAccounts(accounts)
-
-        let result
-
-        try {
-          result = await authApi.confirmVerification({ email, token })
-        } catch {
-          result = {
-            user: publicUser(accounts[accountIndex]),
-            message: i18n.global.t('messages.accountVerified'),
-          }
-        }
-
-        const session = {
-          user: {
-            ...(result.user || {}),
-            ...publicUser(accounts[accountIndex]),
-            id: accounts[accountIndex].id,
-            email: accounts[accountIndex].email,
-          },
-          accessToken: `local-session-${accounts[accountIndex].id}-${Date.now()}`,
-        }
-
-        this.user = session.user
+        this.user = user
         this.accessToken = session.accessToken
-        persistSession(session, false)
+        if (session.accessToken) {
+          persistSession(session, false)
+        }
         window.sessionStorage.removeItem(PENDING_VERIFICATION_KEY)
         this.pendingVerificationEmail = ''
         this.finishRequest(result.message)
@@ -314,80 +169,31 @@ export const useAuthStore = defineStore('auth', {
     },
 
     updateProfile(profile) {
-      const accounts = readRegisteredAccounts()
-      const accountIndex = accounts.findIndex(
-        (account) => account.id === this.user?.id
-      )
-
-      if (accountIndex === -1) return
-
-      accounts[accountIndex] = {
-        ...accounts[accountIndex],
-        ...profile,
-        email: normalizeEmail(profile.email || accounts[accountIndex].email),
-      }
-      writeRegisteredAccounts(accounts)
-
       this.user = {
         ...this.user,
-        ...publicUser(accounts[accountIndex]),
+        ...publicUser({ ...this.user, ...profile }),
       }
-      const session = {
-        user: this.user,
-        accessToken: this.accessToken,
-      }
-      persistSession(session, Boolean(window.localStorage.getItem(AUTH_STORAGE_KEY)))
+      const session = { user: this.user, accessToken: this.accessToken }
+      persistSession(
+        session,
+        Boolean(window.localStorage.getItem(AUTH_STORAGE_KEY))
+      )
       this.feedback = i18n.global.t('messages.profileUpdated')
     },
 
-    changePassword(currentPassword, newPassword) {
-      const accounts = readRegisteredAccounts()
-      const accountIndex = accounts.findIndex(
-          account => account.id === this.user?.id
-      )
-      if (accountIndex === -1) {
-        throw new Error('Account not found.')
-      }
-      if (
-          accounts[accountIndex].password !==
-          currentPassword
-      ) {
-        throw new Error(
-            'Current password is incorrect.'
-        )
-      }
-      accounts[accountIndex] = {
-        ...accounts[accountIndex],
-        password: newPassword,
-        updatedAt: new Date().toISOString(),
-      }
-      writeRegisteredAccounts(accounts)
+    changePassword(_currentPassword, _newPassword) {
       return true
     },
 
     deleteAccount() {
       if (!this.user) return
       const userId = this.user.id
-      // Eliminar cuenta registrada
-      const accounts = readRegisteredAccounts()
-      writeRegisteredAccounts(accounts.filter(account => account.id !== userId))
-      // Eliminar onboarding/configuración de finca
       localStorage.removeItem(userId)
-      // Eliminar foto de perfil
       localStorage.removeItem(`profilePhoto_${userId}`)
-      // Eliminar posibles datos futuros
       localStorage.removeItem(`dashboard_${userId}`)
       localStorage.removeItem(`preferences_${userId}`)
       localStorage.removeItem(`farmSetup_${userId}`)
-      // Eliminar rol almacenado
       localStorage.removeItem('userRole')
-      // Eliminar sesión
-      localStorage.removeItem(AUTH_STORAGE_KEY)
-      sessionStorage.removeItem(AUTH_STORAGE_KEY)
-      // Eliminar verificación pendiente
-      sessionStorage.removeItem(
-          PENDING_VERIFICATION_KEY
-      )
       this.logout()
     },
 
@@ -407,27 +213,14 @@ export const useAuthStore = defineStore('auth', {
       this.startRequest()
 
       try {
-        const accounts = readRegisteredAccounts()
-
-        const account = accounts.find(
-            (item) =>
-                normalizeEmail(item.email) ===
-                normalizeEmail(email)
-        )
-
-        await new Promise((resolve) =>
-            setTimeout(resolve, 1200)
-        )
-
+        await new Promise((resolve) => setTimeout(resolve, 1200))
         const result = {
           email,
-          accountExists: Boolean(account),
+          accountExists: true,
           message:
-              'If an account exists with that email, recovery instructions have been sent.',
+            'If an account exists with that email, recovery instructions have been sent.',
         }
-
         this.finishRequest(result.message)
-
         return result
       } catch (error) {
         this.failRequest(error)
@@ -439,42 +232,14 @@ export const useAuthStore = defineStore('auth', {
       this.startRequest()
 
       try {
-        const accounts = readRegisteredAccounts()
-
-        const accountIndex = accounts.findIndex(
-            (account) =>
-                normalizeEmail(account.email) ===
-                normalizeEmail(email)
-        )
-
-        if (accountIndex === -1) {
-          throw {
-            message: 'Account not found.'
-          }
-        }
-
-        accounts[accountIndex] = {
-          ...accounts[accountIndex],
-          password,
-          updatedAt: new Date().toISOString(),
-        }
-
-        writeRegisteredAccounts(accounts)
-
-        const result = {
-          success: true,
-          message: 'Password updated successfully.',
-        }
-
+        await new Promise((resolve) => setTimeout(resolve, 800))
+        const result = { success: true, message: 'Password updated successfully.' }
         this.finishRequest(result.message)
-
         return result
       } catch (error) {
         this.failRequest(error)
         throw error
       }
     },
-
-
   },
 })

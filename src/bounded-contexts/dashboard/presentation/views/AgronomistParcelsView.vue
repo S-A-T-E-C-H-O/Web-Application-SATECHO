@@ -293,12 +293,14 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useDashboardAgronomistStore } from '../../application/stores/dashboardAgronomist.store'
 
 const router = useRouter()
 const store = useDashboardAgronomistStore()
+
+onMounted(() => { if (store.status === 'idle') store.loadDashboard() })
 const isDrawerOpen = ref(false)
 const inviteEmail = ref('')
 const inviteSent = ref(false)

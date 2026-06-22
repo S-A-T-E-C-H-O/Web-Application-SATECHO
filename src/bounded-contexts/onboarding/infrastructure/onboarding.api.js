@@ -1,56 +1,32 @@
-import {
-  createApiClient,
-  createApiRequest,
-} from '@/shared/infrastructure/http/api-client'
-
-const DEFAULT_ONBOARDING_API_BASE_URL =
-  'https://satecho-onboarding.free.beeceptor.com'
-
-const onboardingClient = createApiClient(
-  import.meta.env.VITE_ONBOARDING_API_BASE_URL ||
-    DEFAULT_ONBOARDING_API_BASE_URL
-)
-
-const onboardingRequest = createApiRequest(onboardingClient)
-
-const readPayload = (response) => {
-  const data = response?.data
-
-  if (data?.body && typeof data.body === 'object') return data.body
-  if (data?.data && typeof data.data === 'object') return data.data
-  if (data?.response && typeof data.response === 'object') return data.response
-
-  return data || {}
-}
+import { apiRequest } from '@/shared/infrastructure/http/api-client'
 
 export const onboardingApi = {
-  async getStatus(userId) {
-    const response = await onboardingRequest({
+  async getStatus(_userId) {
+    const response = await apiRequest({
       method: 'GET',
-      url: '/onboarding/status',
-      params: { userId },
+      url: '/api/v1/onboarding/status',
     })
-    const payload = readPayload(response)
+    const data = response?.data || {}
 
     return {
-      completed: Boolean(payload.completed),
-      currentStep: payload.currentStep || 1,
-      setup: payload.setup || {},
-      message: payload.message || '',
+      completed: Boolean(data.completed),
+      currentStep: data.currentStep || 1,
+      setup: data.setup || {},
+      message: data.message || '',
     }
   },
 
   async complete(setup) {
-    const response = await onboardingRequest({
+    const response = await apiRequest({
       method: 'POST',
-      url: '/onboarding/complete',
+      url: '/api/v1/onboarding/complete',
       data: setup,
     })
-    const payload = readPayload(response)
+    const data = response?.data || {}
 
     return {
-      completed: payload.completed !== false,
-      message: payload.message || 'Configuracion completada correctamente.',
+      completed: data.completed !== false,
+      message: data.message || 'Configuracion completada correctamente.',
     }
   },
 }

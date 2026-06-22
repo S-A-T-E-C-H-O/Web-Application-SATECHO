@@ -1,5 +1,93 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
+import { apiRequest } from '@/shared/infrastructure/http/api-client'
+
+const statusFromTelemetry = (soilHumidity) => {
+  if (soilHumidity == null) return 'Normal'
+  if (soilHumidity < 20) return 'Critical'
+  if (soilHumidity < 35) return 'At Risk'
+  return 'Normal'
+}
+
+const mapClients = (clients) =>
+  clients.map((c) => ({
+    id: String(c.id),
+    client: c.farmerName || `Farmer ${c.farmerId}`,
+    name: c.farmName || 'Farm',
+    crop: c.cropType
+      ? c.cropType.split('_').map((w) => w[0] + w.slice(1).toLowerCase()).join(' ')
+      : 'Unknown',
+    status: statusFromTelemetry(c.soilHumidity),
+    metrics: {
+      soilMoisture: {
+        value: c.soilHumidity ?? '--',
+        unit: '%',
+        trend: 'flat',
+        isAlert: c.soilHumidity != null && c.soilHumidity < 35,
+      },
+      ec: {
+        value: c.ec ?? '--',
+        unit: 'dS/m',
+        trend: 'flat',
+        isAlert: c.ec != null && c.ec > 3,
+      },
+      ph: { value: '--', unit: '', trend: 'flat', isAlert: false },
+      temp: {
+        value: c.temperature ?? '--',
+        unit: '°C',
+        trend: 'flat',
+        isAlert: false,
+      },
+    },
+  }))
+
+const mapSupervisedParcels = (clients) =>
+  clients.map((c) => {
+    const initials = (c.farmerName || '?').split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()
+    const status = statusFromTelemetry(c.soilHumidity)
+    return {
+      id: String(c.id),
+      clientInitials: initials,
+      clientColor: '#e8f5e9',
+      clientText: '#2e7d32',
+      clientName: c.farmerName || `Farmer ${c.farmerId}`,
+      parcelName: c.farmName || 'Farm',
+      crop: c.cropType
+        ? c.cropType.split('_').map((w) => w[0] + w.slice(1).toLowerCase()).join(' ')
+        : 'Unknown',
+      location: c.location || '',
+      status,
+      devicesOnline: 0,
+      devicesTotal: 0,
+      lastUpdate: 'Just updated',
+      metrics: {
+        soilMoisture: {
+          value: c.soilHumidity != null ? `${c.soilHumidity}%` : '--',
+          label: statusFromTelemetry(c.soilHumidity),
+          isAlert: c.soilHumidity != null && c.soilHumidity < 35,
+        },
+        ec: {
+          value: c.ec != null ? `${c.ec} dS/m` : '--',
+          label: c.ec != null && c.ec > 3 ? 'Elevated' : 'Normal',
+          isAlert: c.ec != null && c.ec > 3,
+        },
+        ph: { value: '--', label: 'No data', isAlert: false },
+        temp: {
+          value: c.temperature != null ? `${c.temperature}°C` : '--',
+          label: 'Stable',
+          isAlert: false,
+        },
+      },
+      recommendedRanges: {
+        soilMoisture: '30% - 60%',
+        ec: '1.0 - 2.5',
+        ph: '6.0 - 7.0',
+        temp: '18° - 28°',
+      },
+      recentActivity: [],
+      agronomicRecommendation: '',
+    }
+  })
 
 export const useDashboardAgronomistStore = defineStore('dashboardAgronomist', () => {
   // KPI Data
@@ -9,6 +97,9 @@ export const useDashboardAgronomistStore = defineStore('dashboardAgronomist', ()
     atRisk: 6,
     criticalAlerts: 2
   })
+
+  const status = ref('idle')
+  const error = ref('')
 
   // Parcels List
   const parcels = ref([
@@ -229,12 +320,77 @@ export const useDashboardAgronomistStore = defineStore('dashboardAgronomist', ()
     criticalParcels: 2
   })
 
+  async function loadDashboard() {
+    status.value = 'loading'
+    error.value = ''
+
+    const tasks = await Promise.allSettled([
+      apiRequest({ method: 'GET', url: '/api/v1/dashboard/agronomist' }),
+      apiRequest({ method: 'GET', url: '/api/v1/dashboard/priority-cases' }),
+      apiRequest({ method: 'GET', url: '/api/v1/agronomist/clients/detailed' }),
+    ])
+
+    if (tasks[0].status === 'fulfilled') {
+      const d = tasks[0].value?.data || {}
+      kpis.value = {
+        assignedParcels: d.totalFarms ?? kpis.value.assignedParcels,
+        normalParcels: Number(d.onlineDevices ?? 0),
+        atRisk: Number(d.offlineDevices ?? 0) + Number(d.errorDevices ?? 0),
+        criticalAlerts: Number(d.lowBatteryDevices ?? 0),
+      }
+      portfolioSummary.value = {
+        totalClients: d.totalFarms ?? portfolioSummary.value.totalClients,
+        activeParcels: d.activeFarms ?? portfolioSummary.value.activeParcels,
+        pendingInvitations: portfolioSummary.value.pendingInvitations,
+        criticalParcels: Number(d.errorDevices ?? 0),
+      }
+    }
+
+    if (tasks[1].status === 'fulfilled') {
+      const d = tasks[1].value?.data || {}
+      const cases = Array.isArray(d.cases) ? d.cases : []
+      if (cases.length) {
+        priorityCases.value = cases.map((c) => ({
+          id: String(c.id),
+          parcelName: c.serialNumber || `Device ${c.deviceId}`,
+          timeAgo: 'Just now',
+          title: c.issue || 'Device issue',
+          subtitle: `Type: ${c.type || 'Unknown'} — Health: ${c.healthStatus || 'Unknown'}`,
+          type: c.severity === 'HIGH' ? 'critical' : 'warning',
+        }))
+      }
+    }
+
+    if (tasks[2].status === 'fulfilled') {
+      const clients = Array.isArray(tasks[2].value?.data) ? tasks[2].value.data : []
+      if (clients.length) {
+        parcels.value = mapClients(clients)
+        supervisedParcels.value = mapSupervisedParcels(clients)
+        parcelKPIs.value = {
+          clients: clients.length,
+          linkedParcels: clients.length,
+          pendingInvitations: 0,
+          atRisk: clients.filter(
+            (c) => c.soilHumidity != null && c.soilHumidity < 35
+          ).length,
+        }
+      }
+    }
+
+    const failed = tasks.some((t) => t.status === 'rejected')
+    status.value = failed ? 'partial' : 'success'
+    if (failed) error.value = 'Some data loaded from cache.'
+  }
+
   return {
     kpis,
     parcels,
     priorityCases,
     parcelKPIs,
     supervisedParcels,
-    portfolioSummary
+    portfolioSummary,
+    status,
+    error,
+    loadDashboard,
   }
 })
