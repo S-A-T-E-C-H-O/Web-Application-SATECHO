@@ -4,6 +4,7 @@
     <div class="main-wrapper">
       <TopNav />
       <main class="content-area">
+        <p class="demo-notice">Demo data: agronomist services are pending backend integration.</p>
         <router-view></router-view>
       </main>
     </div>
@@ -34,5 +35,15 @@ import TopNav from '../components/layout/TopNav.vue'
   flex: 1;
   padding: 32px;
   overflow-y: auto;
+}
+
+.demo-notice {
+  background: #fff8df;
+  border: 1px solid #f0d98d;
+  border-radius: 6px;
+  color: #725600;
+  font-size: 13px;
+  margin: 0 0 18px;
+  padding: 10px 12px;
 }
 </style>

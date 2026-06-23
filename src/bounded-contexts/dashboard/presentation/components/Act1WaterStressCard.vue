@@ -35,10 +35,10 @@ const activeRange = computed(() =>
 )
 
 const cardClass = computed(() => activeRange.value?.class || 'stress-moderate')
-const rangeTag = computed(() => activeRange.value?.label || 'Humedad Moderada')
+const rangeTag = computed(() => activeRange.value?.label || 'No reading')
 
 // Barra de progreso: calcula el porcentaje de llenado para el indicador visual
-const fillPercentage = computed(() => Math.min(100, Math.max(0, store.currentReadings.humidity_fc28)))
+const fillPercentage = computed(() => Math.min(100, Math.max(0, Number(store.currentReadings.humidity_fc28) || 0)))
 
 // Determina la recomendación textual usando .filter() sobre condiciones predefinidas
 const recommendation = computed(() => {
@@ -73,7 +73,7 @@ const recommendation = computed(() => {
     <!-- Cuerpo: valor principal con barra de progreso -->
     <div class="act1-body">
       <div class="act1-value-section">
-        <span class="act1-value">{{ store.currentReadings.humidity_fc28 }}</span>
+        <span class="act1-value">{{ store.currentReadings.humidity_fc28 ?? '--' }}</span>
         <span class="act1-unit">%</span>
       </div>
 
@@ -106,7 +106,7 @@ const recommendation = computed(() => {
       </p>
       <button class="refresh-btn" @click="store.refreshHumidityReading">
         <span class="material-symbols-outlined">sync</span>
-        Simular nueva lectura
+        Refresh readings
       </button>
     </footer>
   </article>

@@ -23,7 +23,7 @@ export const operationsApi = {
 
     const items = events.map((e) => ({
       id: String(e.id),
-      type: 'Motion detected',
+      type: String(e.classification || 'Motion detected').replace(/_/g, ' '),
       trust: e.confidenceLevel != null ? Math.round(e.confidenceLevel * 100) : 100,
       note: '',
       location: e.locationDescription || 'Unknown',
@@ -90,6 +90,9 @@ export const operationsApi = {
     const deviceId = zone?.deviceId || null
 
     const isOpen = action.action === 'open' || action.action === 'start'
+    if (isOpen && !deviceId) {
+      throw new Error('The selected zone does not have a linked actuator.')
+    }
     const url = isOpen
       ? `/api/v1/zones/${zoneId}/irrigation/start`
       : `/api/v1/zones/${zoneId}/irrigation/stop`
@@ -113,5 +116,10 @@ export const operationsApi = {
       data: preferences,
     })
     return resp?.data || {}
+  },
+
+  async getNotificationPreferences() {
+    const resp = await apiRequest({ method: 'GET', url: '/api/v1/notifications/preferences' })
+    return Array.isArray(resp?.data) ? resp.data : []
   },
 }

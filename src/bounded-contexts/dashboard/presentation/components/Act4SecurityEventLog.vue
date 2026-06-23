@@ -78,7 +78,7 @@ const lastEventTime = computed(() => {
         }"
       >
         <span class="status-dot" />
-        {{ store.currentReadings.security_pir_status === 'DETECTED' ? 'PERÍMETRO ALERTA' : 'PERÍMETRO SEGURO' }}
+        {{ store.currentReadings.security_pir_status === 'DETECTED' ? 'PERÍMETRO ALERTA' : store.currentReadings.security_pir_status === 'CLEAR' ? 'PERÍMETRO SEGURO' : 'SIN LECTURA PIR' }}
       </span>
     </header>
 
