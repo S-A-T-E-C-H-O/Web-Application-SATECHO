@@ -22,72 +22,10 @@ const steps = [
     label: 'Irrigation Zones',
     icon: 'grass',
   },
-  {
-    id: 3,
-    label: 'Sensors / Devices',
-    icon: 'memory',
-  },
-  {
-    id: 4,
-    label: 'Basic Thresholds',
-    icon: 'speed',
-  },
-]
-
-const deviceOptions = [
-  {
-    key: 'groundSensor',
-    title: 'Ground sensor',
-    description: 'Humidity, EC, pH, temperature',
-  },
-  {
-    key: 'valveController',
-    title: 'Valve controller',
-    description: 'Remote opening/closing',
-  },
-  {
-    key: 'weatherStation',
-    title: 'Weather station',
-    description: 'Climate and environment',
-  },
-  {
-    key: 'securityCamera',
-    title: 'Security camera',
-    description: 'Perimeter surveillance',
-  },
-]
-
-const thresholdRows = [
-  {
-    key: 'soilMoisture',
-    label: 'Soil moisture (%)',
-    min: 0,
-    max: 100,
-    step: 1,
-    unit: '%',
-  },
-  {
-    key: 'electricalConductivity',
-    label: 'Electrical conductivity (EC) - mS/cm',
-    min: 0,
-    max: 5,
-    step: 0.1,
-    unit: '',
-  },
-  {
-    key: 'soilPh',
-    label: 'soil pH',
-    min: 0,
-    max: 14,
-    step: 0.1,
-    unit: '',
-  },
 ]
 
 const setup = computed(() => onboardingStore.setup)
 const currentStep = computed(() => onboardingStore.currentStep)
-const currentZone = computed(() => setup.value.irrigationZones[0])
-const primaryCrop = computed(() => currentZone.value.crop || 'Cherry Tomatoes')
 const currentUserId = computed(() => authStore.user?.id || authStore.user?.email || 'guest')
 
 const isPropertyStepValid = computed(() =>
@@ -123,17 +61,6 @@ const removeZone = (index) => {
   if (setup.value.irrigationZones.length <= 1) return
 
   setup.value.irrigationZones.splice(index, 1)
-}
-
-const updateThreshold = (key, index, value) => {
-  const range = [...setup.value.thresholds[key]]
-  range[index] = Number(value)
-
-  if (range[0] > range[1]) {
-    range[index === 0 ? 1 : 0] = range[index]
-  }
-
-  setup.value.thresholds[key] = range
 }
 
 const goNext = () => {
@@ -339,105 +266,6 @@ onMounted(async () => {
             </button>
           </form>
 
-          <section
-              v-else-if="currentStep === 3"
-              key="devices"
-              class="step-form"
-          >
-            <div class="step-heading">
-              <h2>Sensors and devices</h2>
-              <p>Assign devices to each zone. You can skip this step if you don't have any hardware yet.</p>
-            </div>
-
-            <div class="devices-panel">
-              <div class="zone-title">
-                <span class="material-symbols-outlined">eco</span>
-                <strong>{{ currentZone.name || 'Example' }}</strong>
-                <span>({{ currentZone.crop || 'Wheat' }})</span>
-              </div>
-
-              <div class="devices-grid">
-                <label
-                    v-for="device in deviceOptions"
-                    :key="device.key"
-                    class="device-card"
-                    :class="{ selected: setup.devices[device.key] }"
-                >
-                  <input
-                      v-model="setup.devices[device.key]"
-                      type="checkbox"
-                  >
-                  <strong>{{ device.title }}</strong>
-                  <span>{{ device.description }}</span>
-                </label>
-              </div>
-            </div>
-
-            <div class="note-box">
-              <strong>Note:</strong>
-              You will be able to add and configure specific devices after completing the initial setup.
-            </div>
-          </section>
-
-          <section
-              v-else
-              key="thresholds"
-              class="step-form"
-          >
-            <div class="step-heading">
-              <h2>Basic thresholds</h2>
-              <p>Configure the alert ranges for your crops. You can adjust them by zone later.</p>
-            </div>
-
-            <button
-                type="button"
-                class="recommended-button"
-                @click="setup.thresholds = {
-                  soilMoisture: [50, 80],
-                  electricalConductivity: [1.5, 3],
-                  soilPh: [6, 7],
-                }"
-            >
-              Use recommended values for {{ primaryCrop }}
-            </button>
-
-            <div class="thresholds-list">
-              <div
-                  v-for="row in thresholdRows"
-                  :key="row.key"
-                  class="threshold-row"
-              >
-                <div class="threshold-label">
-                  <strong>{{ row.label }}</strong>
-                  <span class="material-symbols-outlined">help</span>
-                </div>
-                <div class="range-grid">
-                  <span>
-                    {{ setup.thresholds[row.key][0] }}{{ row.unit }}
-                  </span>
-                  <input
-                      :value="setup.thresholds[row.key][0]"
-                      :min="row.min"
-                      :max="row.max"
-                      :step="row.step"
-                      type="range"
-                      @input="updateThreshold(row.key, 0, $event.target.value)"
-                  >
-                  <input
-                      :value="setup.thresholds[row.key][1]"
-                      :min="row.min"
-                      :max="row.max"
-                      :step="row.step"
-                      type="range"
-                      @input="updateThreshold(row.key, 1, $event.target.value)"
-                  >
-                  <span>
-                    {{ setup.thresholds[row.key][1] }}{{ row.unit }}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </section>
         </Transition>
 
         <p
@@ -475,7 +303,7 @@ onMounted(async () => {
               Save and continue later
             </button>
             <button
-                v-if="currentStep < 4"
+                v-if="currentStep < 2"
                 type="button"
                 class="primary-action"
                 :disabled="!canContinue"
@@ -488,7 +316,7 @@ onMounted(async () => {
                 v-else
                 type="button"
                 class="primary-action wide"
-                :disabled="onboardingStore.isLoading"
+                :disabled="!canContinue || onboardingStore.isLoading"
                 @click="completeOnboarding"
             >
               {{ onboardingStore.isLoading ? 'Completing...' : 'Complete configuration' }}
@@ -540,7 +368,7 @@ onMounted(async () => {
 
 .stepper {
   display: grid;
-  grid-template-columns: 84px 1fr 104px 1fr 104px 1fr 108px;
+  grid-template-columns: 120px 1fr 140px;
   align-items: start;
   gap: 22px;
   margin: 0 auto 52px;
@@ -668,8 +496,7 @@ onMounted(async () => {
   color: #4e554c;
 }
 
-.zone-panel,
-.devices-panel {
+.zone-panel {
   background: #f7f7f4;
   border: 1px solid #e1e4de;
   border-radius: 10px;
@@ -700,24 +527,6 @@ onMounted(async () => {
   justify-content: center;
   gap: 8px;
   font-weight: 700;
-}
-
-.zone-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 24px;
-}
-
-.zone-title .material-symbols-outlined {
-  width: 32px;
-  height: 32px;
-  border-radius: 999px;
-  background: #dfe9dc;
-  color: #456c4c;
-  display: grid;
-  font-size: 17px;
-  place-items: center;
 }
 
 .zone-header{
@@ -753,105 +562,6 @@ onMounted(async () => {
 
 .remove-zone-button .material-symbols-outlined{
   font-size:18px;
-}
-
-.devices-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
-}
-
-.device-card {
-  min-height: 74px;
-  border: 1px solid #dfe1dd;
-  border-radius: 8px;
-  background: white;
-  cursor: pointer;
-  display: grid;
-  gap: 6px;
-  padding: 16px;
-}
-
-.device-card input {
-  position: absolute;
-  opacity: 0;
-  pointer-events: none;
-}
-
-.device-card strong {
-  font-size: 15px;
-}
-
-.device-card span {
-  color: #4e564d;
-  font-size: 13px;
-}
-
-.device-card.selected {
-  border-color: #456c4c;
-  box-shadow: inset 0 0 0 1px #456c4c;
-}
-
-.note-box {
-  background: #fff2ed;
-  border: 1px solid #ffc9b7;
-  border-radius: 8px;
-  color: #2d2825;
-  line-height: 1.5;
-  padding: 18px;
-}
-
-.recommended-button {
-  width: 100%;
-  height: 54px;
-  border: 1px solid #c4cbc2;
-  border-radius: 12px;
-  background: white;
-  color: #3d443c;
-  cursor: pointer;
-  font: inherit;
-}
-
-.thresholds-list {
-  display: grid;
-  gap: 34px;
-}
-
-.threshold-row {
-  display: grid;
-  gap: 16px;
-}
-
-.threshold-label {
-  display: flex;
-  align-items: center;
-  gap: 36px;
-}
-
-.threshold-label strong {
-  font-size: 15px;
-}
-
-.threshold-label span {
-  color: #687067;
-  font-size: 18px;
-}
-
-.range-grid {
-  display: grid;
-  grid-template-columns: 46px 1fr 1fr 46px;
-  align-items: center;
-  gap: 12px;
-}
-
-.range-grid span {
-  color: #4e564d;
-  font-size: 14px;
-}
-
-.range-grid input {
-  accent-color: #456c4c;
-  width: 100%;
 }
 
 .form-message {
@@ -933,7 +643,7 @@ onMounted(async () => {
   }
 
   .stepper {
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(2, 1fr);
     gap: 10px;
   }
 
@@ -949,13 +659,8 @@ onMounted(async () => {
     padding: 28px 20px;
   }
 
-  .zone-grid,
-  .devices-grid {
+  .zone-grid {
     grid-template-columns: 1fr;
-  }
-
-  .range-grid {
-    grid-template-columns: 40px 1fr 1fr 40px;
   }
 
   .card-actions,
