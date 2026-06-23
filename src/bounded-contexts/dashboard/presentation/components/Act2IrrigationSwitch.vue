@@ -68,12 +68,12 @@ const iconName = computed(() =>
         <div class="info-row">
           <span class="info-icon material-symbols-outlined">location_on</span>
           <span class="info-label">Zona de riego</span>
-          <strong>Zona 1 — Principal</strong>
+          <strong>First linked irrigation zone</strong>
         </div>
         <div class="info-row">
           <span class="info-icon material-symbols-outlined">water_drop</span>
           <span class="info-label">Caudal estimado</span>
-          <strong>450 L/h</strong>
+          <strong>Not available</strong>
         </div>
       </div>
     </div>
@@ -90,7 +90,7 @@ const iconName = computed(() =>
       </button>
       <p class="endpoint-hint">
         <span class="material-symbols-outlined">http</span>
-        POST /telemetry/irrigation/toggle → { active: {{ store.isIrrigating }} }
+        Sends an irrigation command to the linked actuator.
       </p>
     </footer>
   </article>

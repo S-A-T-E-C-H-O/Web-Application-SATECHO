@@ -33,6 +33,12 @@ const profileForm = ref({
   propertyName: '',
   sizeHectares: '',
 })
+const isZoneDialogOpen = ref(false)
+const isDeviceDialogOpen = ref(false)
+const savingZone = ref(false)
+const savingDevice = ref(false)
+const zoneForm = ref({ id: null, name: '', areaHectares: '', cropType: '' })
+const deviceForm = ref({ serialNumber: '', type: 'SOIL_SENSOR', zoneId: '' })
 
 const planLabel = computed(() => {
   const labels = {
@@ -234,16 +240,6 @@ const irrigationElapsed = (zone) => {
   return `${minutes} min`
 }
 
-const classifyEvent = (
-    eventId,
-    classification
-) => {
-  dashboardStore.classifySecurityEvent(
-      eventId,
-      classification
-  )
-}
-
 const navigation = [
   { key: 'dashboard', label: 'Dashboard', icon: 'dashboard' },
   { key: 'irrigation', label: 'Zones and Irrigation', icon: 'water_drop' },
@@ -296,6 +292,63 @@ const filteredDevices = computed(() =>
     return matchesStatus && matchesType
   })
 )
+
+const cropOptions = computed(() =>
+  dashboardStore.cropTypes.length
+    ? dashboardStore.cropTypes
+    : [
+        { value: 'CORN', label: 'Corn' },
+        { value: 'TOMATO', label: 'Tomato' },
+        { value: 'AVOCADO', label: 'Avocado' },
+        { value: 'BLUEBERRY', label: 'Blueberry' },
+        { value: 'WHEAT', label: 'Wheat' },
+        { value: 'LETTUCE', label: 'Lettuce' },
+      ]
+)
+
+const openCreateZone = () => {
+  zoneForm.value = { id: null, name: '', areaHectares: '', cropType: cropOptions.value[0]?.value || '' }
+  isZoneDialogOpen.value = true
+}
+
+const openEditZone = (zone) => {
+  zoneForm.value = {
+    id: zone.id,
+    name: zone.name,
+    areaHectares: zone.areaHectares,
+    cropType: zone.cropType,
+  }
+  isZoneDialogOpen.value = true
+}
+
+const saveZone = async () => {
+  savingZone.value = true
+  try {
+    await dashboardStore.saveZone(zoneForm.value)
+    isZoneDialogOpen.value = false
+  } catch (error) {
+    dashboardStore.setFeedback(error.message || 'Zone could not be saved.')
+  } finally {
+    savingZone.value = false
+  }
+}
+
+const openRegisterDevice = () => {
+  deviceForm.value = { serialNumber: '', type: 'SOIL_SENSOR', zoneId: '' }
+  isDeviceDialogOpen.value = true
+}
+
+const saveDevice = async () => {
+  savingDevice.value = true
+  try {
+    await dashboardStore.registerDevice({ ...deviceForm.value, zoneId: deviceForm.value.zoneId || null })
+    isDeviceDialogOpen.value = false
+  } catch (error) {
+    dashboardStore.setFeedback(error.message || 'Device could not be registered.')
+  } finally {
+    savingDevice.value = false
+  }
+}
 
 const currentPlan = ref(
     localStorage.getItem('userPlan') || 'pro'
@@ -351,6 +404,7 @@ const goTo = (key) => {
 const statusLabel = (status) => {
   if (status === 'critical') return 'Critical'
   if (status === 'attention') return 'Attention'
+  if (status === 'unknown') return 'No readings'
   return 'Normal'
 }
 
@@ -416,14 +470,19 @@ const syncProfileForm = () => {
   }
 }
 
-const saveProfile = () => {
+const saveProfile = async () => {
   authStore.updateProfile({
     fullName: profileForm.value.fullName,
     email: profileForm.value.email,
     phone: profileForm.value.phone,
     location: profileForm.value.location,
   })
-  dashboardStore.updateFarmProfile(profileForm.value)
+  try {
+    await dashboardStore.updateFarmProfile(profileForm.value)
+  } catch (error) {
+    dashboardStore.setFeedback(error.message || 'Property details could not be updated.')
+    return
+  }
   dashboardStore.overview.farm.owner = profileForm.value.fullName
   isEditingProfile.value = false
   dashboardStore.setFeedback(
@@ -648,11 +707,12 @@ onMounted(async () => {
           <header class="card-title-row">
             <div>
               <h2><span class="material-symbols-outlined warning">warning</span> Critical alerts now</h2>
-              <p><strong>1 critical zone</strong> and <strong>1 under care</strong></p>
+              <p>{{ alerts.length ? `${alerts.length} zone alert${alerts.length === 1 ? '' : 's'} need attention` : 'No active alerts from your connected zones.' }}</p>
             </div>
             <button class="link-button" @click="viewAllAlerts">View all<span class="material-symbols-outlined">chevron_right</span>
             </button>
           </header>
+          <p v-if="!alerts.length" class="empty-state">No threshold alerts are available yet.</p>
           <article v-for="alert in alerts" :key="alert.id" class="alert-row">
             <span class="status-badge" :class="alert.level">{{ alert.badge }}</span>
             <div>
@@ -670,6 +730,7 @@ onMounted(async () => {
             View irrigation control <span class="material-symbols-outlined">chevron_right</span>
           </button>
         </header>
+        <p v-if="!zones.length" class="empty-state">Create your first irrigation zone to begin monitoring your property.</p>
         <div class="zone-mini-grid">
           <article v-for="zone in zones" :key="zone.id" class="zone-mini-card" :class="zone.status">
             <header>
@@ -680,13 +741,13 @@ onMounted(async () => {
               <span class="dot-label" :class="zone.status">{{ statusLabel(zone.status) }}</span>
             </header>
             <dl>
-              <div><dt><span class="material-symbols-outlined">water_drop</span> Humidity</dt><dd>{{ zone.humidity }}%</dd></div>
-              <div><dt><span class="material-symbols-outlined">bolt</span> EC</dt><dd>{{ zone.ec }} mS/cm</dd></div>
+              <div><dt><span class="material-symbols-outlined">water_drop</span> Humidity</dt><dd>{{ zone.humidity === '--' ? '--' : `${zone.humidity}%` }}</dd></div>
+              <div><dt><span class="material-symbols-outlined">bolt</span> EC</dt><dd>{{ zone.ec === '--' ? '--' : `${zone.ec} mS/cm` }}</dd></div>
               <div><dt><span class="material-symbols-outlined">science</span> pH</dt><dd>{{ zone.ph }}</dd></div>
               <div><dt><span class="material-symbols-outlined">device_thermostat</span> Temp</dt><dd>{{ zone.temp }}C</dd></div>
             </dl>
             <footer>
-              <small>{{ zone.irrigating ? '30 seconds ago' : '5 minutes ago' }}</small>
+              <small>{{ zone.lastReading }}</small>
               <span v-if="zone.irrigating">Active irrigation</span>
             </footer>
           </article>
@@ -710,6 +771,11 @@ onMounted(async () => {
             <button :class="{ active: irrigationTab === 'control' }" @click="irrigationTab = 'control'">Irrigation control</button>
             <button :class="{ active: irrigationTab === 'history' }" @click="irrigationTab = 'history'">historical</button>
           </div>
+        </div>
+
+        <div class="toolbar-row">
+          <p class="inline-note">Zones are stored in your property configuration.</p>
+          <button class="outline-button compact" @click="openCreateZone"><span class="material-symbols-outlined">add</span> Add zone</button>
         </div>
 
         <div v-if="irrigationTab === 'control'" class="irrigation-grid">
@@ -739,9 +805,9 @@ onMounted(async () => {
               </span>
               <span>
                 Next irrigation:
-                {{ zone.nextWatering || 'Today 18:00' }}</span>
+                {{ zone.nextWatering || 'No schedule configured' }}</span>
               <span>
-                {{ zone.waterUsed }} L used
+                {{ zone.waterUsed === '--' ? 'No water measurement' : `${zone.waterUsed} L used` }}
               </span>
             </div>
             <div v-if="zone.status === 'critical'" class="critical-banner">
@@ -757,12 +823,17 @@ onMounted(async () => {
               <button
                 class="primary-action"
                 :class="{ danger: zone.irrigating }"
+                :disabled="!zone.irrigating && !zone.deviceId"
                 @click="dashboardStore.toggleIrrigation(zone.id, selectedDuration)"
               >
                 <span class="material-symbols-outlined">{{ zone.irrigating ? 'stop_circle' : 'play_circle' }}</span>
                 {{ zone.irrigating ? 'Stop irrigation' : 'Open valve' }}
               </button>
+              <button class="outline-button compact" @click="openEditZone(zone)">
+                <span class="material-symbols-outlined">edit</span> Edit zone
+              </button>
             </div>
+            <p v-if="!zone.deviceId && !zone.irrigating" class="inline-note">Link an actuator to enable irrigation control.</p>
           </article>
         </div>
 
@@ -795,6 +866,7 @@ onMounted(async () => {
               </tr>
             </thead>
             <tbody>
+              <tr v-if="!filteredHistory.length"><td colspan="6" class="empty-table">No irrigation history is available yet.</td></tr>
               <tr v-for="item in filteredHistory" :key="item.id">
                 <td>{{ item.dateTime }}</td>
                 <td>{{ item.area }}</td>
@@ -820,7 +892,7 @@ onMounted(async () => {
         <div class="metric-grid three">
           <article class="status-card danger"><span class="material-symbols-outlined">sensors</span><strong>{{ dashboardStore.securityEvents.length }}</strong><p>Motion events detected</p></article>
           <article class="status-card warning"><span class="material-symbols-outlined">error</span><strong>{{ dashboardStore.unreadSecurityEvents }}</strong><p>Events pending review</p></article>
-          <article class="status-card success"><span class="material-symbols-outlined">shield</span><strong>Active</strong><p>24/7 Monitoring</p></article>
+          <article class="status-card success"><span class="material-symbols-outlined">shield</span><strong>{{ dashboardStore.securitySettings ? 'Configured' : 'Not configured' }}</strong><p>{{ dashboardStore.securitySettings ? 'Settings loaded from Azure' : 'No security settings found' }}</p></article>
         </div>
 
         <div class="toolbar-row">
@@ -828,10 +900,10 @@ onMounted(async () => {
             <button :class="{ active: securityTab === 'events' }" @click="securityTab = 'events'">Events <span class="counter-dot">{{ dashboardStore.unreadSecurityEvents }}</span></button>
             <button :class="{ active: securityTab === 'settings' }" @click="securityTab = 'settings'">Configuration</button>
           </div>
-          <button class="outline-button compact" @click="dashboardStore.createSecurityEvent()"><span class="material-symbols-outlined">add_alert</span> Simulate motion</button>
         </div>
 
         <div v-if="securityTab === 'events'" class="security-list">
+          <p v-if="!dashboardStore.securityEvents.length" class="empty-state">No perimeter events have been reported yet.</p>
           <article v-for="event in dashboardStore.securityEvents" :key="event.id" class="security-event" :class="event.priority">
             <span class="event-icon material-symbols-outlined">{{ event.icon }}</span>
             <div class="event-body">
@@ -856,20 +928,6 @@ onMounted(async () => {
                 Motion detected in a protected area.
                 Verify the perimeter and review the event.
               </div>
-            </div>
-            <div v-if="!event.reviewed" class="classification-actions">
-              <button class="outline-button compact" @click="classifyEvent(event.id, 'Human')">
-                Human
-              </button>
-              <button class="outline-button compact" @click="classifyEvent(event.id, 'Animal')">
-                Animal
-              </button>
-              <button class="outline-button compact" @click="classifyEvent(event.id, 'Vehicle')">
-                Vehicle
-              </button>
-              <button class="outline-button compact" @click="classifyEvent(event.id, 'False alarm')">
-                False alarm
-              </button>
             </div>
             <button class="icon-button" @click="viewSecurityEvent(event)"><span class="material-symbols-outlined">visibility</span></button>
           </article>
@@ -925,7 +983,7 @@ onMounted(async () => {
             <h1>IoT Devices</h1>
             <p>Manage and monitor all connected devices</p>
           </div>
-          <button class="primary-action slim" @click="dashboardStore.registerDevice"><span class="material-symbols-outlined">add</span> Register device</button>
+          <button class="primary-action slim" @click="openRegisterDevice"><span class="material-symbols-outlined">add</span> Register device</button>
         </div>
 
         <div class="metric-grid three">
@@ -940,8 +998,10 @@ onMounted(async () => {
               <span class="material-symbols-outlined">filter_alt</span>
               <select v-model="deviceStatus">
                 <option value="all">All</option>
-                <option value="online">Online</option>
-                <option value="offline">Offline</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+                <option value="pending_activation">Pending activation</option>
+                <option value="decommissioned">Decommissioned</option>
               </select>
             </label>
             <label class="select-filter">
@@ -966,6 +1026,7 @@ onMounted(async () => {
             </tr>
             </thead>
             <tbody>
+              <tr v-if="!filteredDevices.length"><td colspan="7" class="empty-table">No devices are registered for this account.</td></tr>
               <tr v-for="device in filteredDevices" :key="device.id">
                 <td>
                   <div class="device-cell">
@@ -986,16 +1047,16 @@ onMounted(async () => {
                   </div>
                 </td>
                 <td>{{ device.zone }}</td>
-                <td><span class="online-chip" :class="device.status"><span class="material-symbols-outlined">{{ device.status === 'online' ? 'wifi' : 'wifi_off' }}</span>{{ device.status }}</span></td>
-                <td><span :class="{ dangerText: device.battery <= 20 }"><span class="material-symbols-outlined tiny">battery_full</span> {{ device.battery }}%</span></td>
+                <td><span class="online-chip" :class="{ online: device.online, offline: !device.online }"><span class="material-symbols-outlined">{{ device.online ? 'wifi' : 'wifi_off' }}</span>{{ device.status.replace(/_/g, ' ') }}</span></td>
+                <td><span :class="{ dangerText: Number(device.battery) <= 20 }"><span class="material-symbols-outlined tiny">battery_full</span> {{ device.battery === '--' ? '--' : `${device.battery}%` }}</span></td>
                 <td><span class="health-chip" :class="device.health?.toLowerCase()">{{ device.health }}</span></td>
                 <td><span class="material-symbols-outlined tiny">schedule</span> {{ device.lastReading }}</td>
                 <td>
                   <div class="row-actions">
-                    <button class="ghost-icon" title="Refresh reading" @click="dashboardStore.refreshDeviceReading(device.id)">
+                    <button class="ghost-icon" title="Refresh device status" @click="dashboardStore.refreshDeviceStatus(device.id)">
                       <span class="material-symbols-outlined">sync</span>
                     </button>
-                    <button class="ghost-icon" title="Toggle status" @click="dashboardStore.toggleDeviceStatus(device.id)">
+                    <button v-if="device.status === 'active'" class="ghost-icon" title="Deactivate device" @click="dashboardStore.deactivateDevice(device.id)">
                       <span class="material-symbols-outlined">power_settings_new</span>
                     </button>
                   </div>
@@ -1555,10 +1616,7 @@ onMounted(async () => {
             </section>
             <section class="surface-card mini-panel">
               <h3>RECENT ACTIVITY</h3>
-              <p><span class="material-symbols-outlined outlined">login</span><strong>Login</strong><small>2 hours ago - Bogota, CO</small></p>
-              <p><span class="material-symbols-outlined outlined">settings</span><strong>Updated profile</strong><small>2 days ago</small></p>
-              <p><span class="material-symbols-outlined outlined">password</span><strong>Password change</strong><small>1 month ago</small></p>
-              <button class="link-button" @click="viewFullHistory">View full history</button>
+              <p class="empty-state">Account activity history is not available from the backend yet.</p>
             </section>
             <section class="danger-zone">
               <strong>Danger zone</strong>
@@ -1569,6 +1627,32 @@ onMounted(async () => {
         </div>
       </section>
     </section>
+
+    <div v-if="isZoneDialogOpen" class="dialog-backdrop" @click.self="isZoneDialogOpen = false">
+      <form class="dialog-panel" @submit.prevent="saveZone">
+        <header class="dialog-header">
+          <div><h2>{{ zoneForm.id ? 'Edit irrigation zone' : 'Add irrigation zone' }}</h2><p>These details are saved to your property in Azure.</p></div>
+          <button type="button" class="icon-button" aria-label="Close" @click="isZoneDialogOpen = false"><span class="material-symbols-outlined">close</span></button>
+        </header>
+        <label class="form-field"><span>Zone name</span><input v-model.trim="zoneForm.name" required></label>
+        <label class="form-field"><span>Area (ha)</span><input v-model.number="zoneForm.areaHectares" type="number" min="0.1" step="0.1" required></label>
+        <label class="form-field"><span>Crop</span><select v-model="zoneForm.cropType" required><option v-for="crop in cropOptions" :key="crop.value" :value="crop.value">{{ crop.label }}</option></select></label>
+        <footer class="dialog-actions"><button type="button" class="outline-button" @click="isZoneDialogOpen = false">Cancel</button><button class="primary-action" :disabled="savingZone">{{ savingZone ? 'Saving...' : 'Save zone' }}</button></footer>
+      </form>
+    </div>
+
+    <div v-if="isDeviceDialogOpen" class="dialog-backdrop" @click.self="isDeviceDialogOpen = false">
+      <form class="dialog-panel" @submit.prevent="saveDevice">
+        <header class="dialog-header">
+          <div><h2>Register IoT device</h2><p>New devices are pending activation until hardware provisioning is completed.</p></div>
+          <button type="button" class="icon-button" aria-label="Close" @click="isDeviceDialogOpen = false"><span class="material-symbols-outlined">close</span></button>
+        </header>
+        <label class="form-field"><span>Serial number</span><input v-model.trim="deviceForm.serialNumber" required></label>
+        <label class="form-field"><span>Device type</span><select v-model="deviceForm.type"><option value="SOIL_SENSOR">Soil sensor</option><option value="VALVE_CONTROLLER">Valve controller</option><option value="PIR_SENSOR">PIR sensor</option><option value="WEATHER_STATION">Weather station</option><option value="ACTUATOR">Actuator</option></select></label>
+        <label class="form-field"><span>Assign to zone (optional)</span><select v-model="deviceForm.zoneId"><option value="">Not assigned</option><option v-for="zone in zones" :key="zone.id" :value="zone.id">{{ zone.name }}</option></select></label>
+        <footer class="dialog-actions"><button type="button" class="outline-button" @click="isDeviceDialogOpen = false">Cancel</button><button class="primary-action" :disabled="savingDevice">{{ savingDevice ? 'Registering...' : 'Register device' }}</button></footer>
+      </form>
+    </div>
   </main>
 </template>
 
@@ -3368,6 +3452,75 @@ td {
   border-radius: 8px;
   padding: 12px 16px;
   box-shadow: 0 10px 30px rgba(20, 28, 20, .18);
+}
+
+.empty-state,
+.empty-table {
+  color: #687067;
+  padding: 22px;
+  text-align: center;
+}
+
+.dialog-backdrop {
+  align-items: center;
+  background: rgba(20, 28, 20, 0.42);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 20px;
+  position: fixed;
+  z-index: 40;
+}
+
+.dialog-panel {
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 24px 64px rgba(20, 28, 20, 0.24);
+  display: grid;
+  gap: 18px;
+  max-width: 520px;
+  padding: 26px;
+  width: min(100%, 520px);
+}
+
+.dialog-header {
+  align-items: flex-start;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+}
+
+.dialog-header h2,
+.dialog-header p {
+  margin: 0;
+}
+
+.dialog-header p {
+  color: #687067;
+  font-size: 14px;
+  margin-top: 6px;
+}
+
+.form-field {
+  display: grid;
+  gap: 7px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.form-field input,
+.form-field select {
+  border: 1px solid #cfd5cc;
+  border-radius: 6px;
+  font: inherit;
+  min-height: 44px;
+  padding: 0 12px;
+}
+
+.dialog-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
 }
 
 @media (max-width: 1040px) {

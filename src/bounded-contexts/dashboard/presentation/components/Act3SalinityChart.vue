@@ -79,7 +79,7 @@ const maxSalinity = computed(() =>
       <div class="metric-item current">
         <span class="metric-label">Actual</span>
         <span class="metric-value" :class="{ 'text-critical': store.currentSalinity > 5.0 }">
-          {{ store.currentSalinity.toFixed(1) }}
+          {{ store.currentSalinity == null ? '--' : Number(store.currentSalinity).toFixed(1) }}
         </span>
         <span class="metric-unit">dS/m</span>
       </div>
