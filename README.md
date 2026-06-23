@@ -32,33 +32,25 @@ src/    <br>
 npm install
 ```
 
-## Mock API with Beeceptor
+## Backend integration
 
-The auth bounded context is wired to a configurable Beeceptor mock API. By default it points to:
-
-```bash
-VITE_API_BASE_URL=https://satecho-auth.free.beeceptor.com
-```
-
-Create the Beeceptor endpoint `satecho-auth` and import `docs/beeceptor/satecho-auth.openapi.json`, or set another endpoint in a local `.env` file. The implemented endpoints are documented in `docs/beeceptor/auth-api.md`.
-
-For future bounded contexts, create one Beeceptor endpoint per context when rule limits become tight, for example `satecho-fields` or `satecho-crops`.
-
-The onboarding bounded context uses its own Beeceptor endpoint:
+The application uses the deployed Azure backend for authentication, onboarding,
+farms, irrigation zones and perimeter-security settings.
 
 ```bash
-VITE_ONBOARDING_API_BASE_URL=https://satecho-onboarding.free.beeceptor.com
+# .env for local development (Vite proxy)
+VITE_API_BASE_URL=/api
+BACKEND_API_ORIGIN=http://agrosafe-back.eastus2.azurecontainer.io:8080
+
+# Vercel Preview and Production
+VITE_API_BASE_URL=/api
 ```
 
-Create the Beeceptor endpoint `satecho-onboarding` and import `docs/beeceptor/satecho-onboarding.openapi.json`. The implemented endpoints are documented in `docs/beeceptor/onboarding-api.md`.
+Vite and Vercel proxy `/api/*` to Azure. This keeps browser requests on the
+same origin while Azure remains available over HTTP. The HTTP client
+automatically adds the saved JWT as `Authorization: Bearer <token>`.
 
-The agricultural dashboard uses two Beeceptor endpoints with a maximum of three rules each:
-
-```bash
-VITE_FARM_API_BASE_URL=https://satecho-farm.free.beeceptor.com
-VITE_OPERATIONS_API_BASE_URL=https://satecho-operations.free.beeceptor.com
-```
-
-Create `satecho-farm` from `docs/beeceptor/satecho-farm.openapi.json` and `satecho-operations` from `docs/beeceptor/satecho-operations.openapi.json`. The rule split is documented in `docs/beeceptor/dashboard-api.md`.
-
-Optional extra dashboard APIs for account, reports and device actions are described in `docs/beeceptor/dashboard-extra-apis.md`. They are not required because the frontend keeps those actions functional locally when Beeceptor is not configured.
+The agronomist dashboard, client portfolio, priority cases and presentation-only
+device, telemetry and irrigation demonstrations retain local fallback data until
+their backend contracts are finalized. Their view interfaces remain stable so a
+real endpoint can replace the fallback without changing the UI.

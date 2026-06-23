@@ -89,7 +89,7 @@
     "loginSuccess": "Inicio de sesión correcto.",
     "accountAlreadyExists": "Ya existe una cuenta registrada con este correo. Inicia sesión o usa otro correo.",
     "accountCreatedLocal": "Cuenta creada localmente. Verifica tu correo para continuar.",
-    "verificationLinkSimulated": "Enlace de verificación simulado. Revisa Beeceptor para probar login, registro y confirmación.",
+    "verificationLinkSimulated": "Enlace de verificación simulado. Revisa el entorno de API para probar login, registro y confirmación.",
     "verificationPendingNotFound": "No encontramos una cuenta pendiente de verificación para este correo.",
     "accountVerified": "Cuenta verificada correctamente.",
     "profileUpdated": "Perfil actualizado correctamente.",

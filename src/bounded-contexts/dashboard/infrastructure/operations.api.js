@@ -37,6 +37,43 @@ export const operationsApi = {
     return { items }
   },
 
+  async getSecuritySettings() {
+    const farm = await getFirstFarm()
+    if (!farm) return null
+
+    const resp = await apiRequest({
+      method: 'GET',
+      url: `/api/v1/farms/${farm.id}/security/settings`,
+    })
+
+    return resp?.data || null
+  },
+
+  async saveSecuritySettings(settings) {
+    const farm = await getFirstFarm()
+    if (!farm) return null
+
+    const resp = await apiRequest({
+      method: 'PUT',
+      url: `/api/v1/farms/${farm.id}/security/settings`,
+      data: settings,
+    })
+
+    return resp?.data || null
+  },
+
+  async acknowledgeSecurityEvent(eventId, acknowledgedBy) {
+    if (!eventId || Number.isNaN(Number(eventId))) return null
+
+    const resp = await apiRequest({
+      method: 'PATCH',
+      url: `/api/v1/security/events/${eventId}`,
+      data: { acknowledgedBy: Number(acknowledgedBy) || null },
+    })
+
+    return resp?.data || null
+  },
+
   async registerIrrigationAction(action) {
     const zoneId = action.zoneId
     if (!zoneId || isNaN(Number(zoneId))) return {}
