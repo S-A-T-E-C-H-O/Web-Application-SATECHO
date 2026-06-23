@@ -334,6 +334,7 @@ export const useDashboardStore = defineStore('dashboard', {
     history: fallbackHistory,
     devices: fallbackDevices,
     securityEvents: fallbackSecurityEvents,
+    securitySettings: null,
     notificationPreferences: loadNotificationPreferences(),
     status: 'idle',
     error: '',
@@ -385,16 +386,22 @@ export const useDashboardStore = defineStore('dashboard', {
         farmApi.getIrrigationHistory(),
         farmApi.getDevices(),
         operationsApi.getSecurityEvents(),
+        operationsApi.getSecuritySettings(),
       ])
 
       if (tasks[0].status === 'fulfilled') this.overview = normalizeOverview(tasks[0].value)
       if (tasks[1].status === 'fulfilled' && Array.isArray(tasks[1].value.items)) this.history = tasks[1].value.items
       if (tasks[2].status === 'fulfilled' && Array.isArray(tasks[2].value.items)) this.devices = tasks[2].value.items
       if (tasks[3].status === 'fulfilled' && Array.isArray(tasks[3].value.items)) this.securityEvents = tasks[3].value.items
+      if (tasks[4].status === 'fulfilled' && tasks[4].value) {
+        this.securitySettings = tasks[4].value
+        this.notificationPreferences.security.sensitivity =
+          tasks[4].value.motionSensitivity ?? this.notificationPreferences.security.sensitivity
+      }
 
       const failed = tasks.some((task) => task.status === 'rejected')
       this.status = failed ? 'local' : 'success'
-      this.error = failed ? 'Using local dashboard data while Beeceptor is unavailable.' : ''
+      this.error = failed ? 'Some dashboard data is temporarily using local fallback data.' : ''
       this.applyLocalUserConfiguration()
       this.updateOverviewMetrics()
     },
@@ -516,13 +523,20 @@ export const useDashboardStore = defineStore('dashboard', {
       }
     },
 
-    markSecurityReviewed(eventId) {
+    async markSecurityReviewed(eventId) {
       const event = this.securityEvents.find((item) => item.id === eventId)
-      if (event) {
-        event.reviewed = true
-        event.note = 'Reviewed'
-        event.reviewedAt = new Date().toLocaleString()
+      if (!event) return
+
+      event.reviewed = true
+      event.note = 'Reviewed'
+      event.reviewedAt = new Date().toLocaleString()
+
+      try {
+        const user = readCurrentSession()?.user
+        await operationsApi.acknowledgeSecurityEvent(eventId, user?.id)
         this.setFeedback(`${event.type} event marked as reviewed.`)
+      } catch {
+        this.setFeedback(`${event.type} event marked as reviewed locally.`)
       }
     },
 
@@ -591,6 +605,28 @@ export const useDashboardStore = defineStore('dashboard', {
       this.setFeedback(`${device.name} reading refreshed.`)
     },
 
+    async saveSecuritySettings() {
+      const security = this.notificationPreferences.security
+      const activeSchedule = security.schedule.find((day) => day.enabled) || security.schedule[0]
+
+      try {
+        const savedSettings = await operationsApi.saveSecuritySettings({
+          motionSensitivity: security.sensitivity,
+          alertMode: security.types.movement ? 'ACTIVE' : 'MUTED',
+          detectionScheduleStart: activeSchedule?.start || '00:00',
+          detectionScheduleEnd: activeSchedule?.end || '23:59',
+          notificationContacts: this.notificationPreferences.emergencyContacts
+            .map((contact) => contact.phone)
+            .filter(Boolean)
+            .join(','),
+        })
+        this.securitySettings = savedSettings || this.securitySettings
+        this.setFeedback('Security settings updated.')
+      } catch {
+        this.setFeedback('Security settings saved locally.')
+      }
+    },
+
     async saveNotificationPreferences() {
       localStorage.setItem(
           'notificationPreferences',
@@ -600,7 +636,7 @@ export const useDashboardStore = defineStore('dashboard', {
           'Notification settings updated successfully.'
     },
 
-    classifySecurityEvent(
+    async classifySecurityEvent(
         eventId,
         classification
     ) {
@@ -611,11 +647,8 @@ export const useDashboardStore = defineStore('dashboard', {
       if (!event) return
       event.classification =
           classification
-      event.reviewed = true
-      event.note = 'Reviewed'
-      this.setFeedback(
-          `Event classified as ${classification}.`
-      )
+      await this.markSecurityReviewed(eventId)
+      this.setFeedback(`Event classified as ${classification}.`)
     },
   },
 })

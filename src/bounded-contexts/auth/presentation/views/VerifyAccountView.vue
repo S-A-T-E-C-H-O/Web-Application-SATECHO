@@ -26,7 +26,7 @@ const confirmAccount = async () => {
   try {
     await authStore.confirmVerification({
       email: verificationEmail.value,
-      token: route.query.token || 'beeceptor-demo-token',
+      token: route.query.token || 'verification-token',
     })
 
     router.push({

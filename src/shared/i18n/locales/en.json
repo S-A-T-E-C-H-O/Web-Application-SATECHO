@@ -89,7 +89,7 @@
     "loginSuccess": "Signed in successfully.",
     "accountAlreadyExists": "An account is already registered with this email. Sign in or use another email.",
     "accountCreatedLocal": "Account created locally. Verify your email to continue.",
-    "verificationLinkSimulated": "Verification link simulated. Check Beeceptor to test login, registration, and confirmation.",
+    "verificationLinkSimulated": "Verification link simulated. Use the API environment to test login, registration, and confirmation.",
     "verificationPendingNotFound": "We could not find a pending verification account for this email.",
     "accountVerified": "Account verified successfully.",
     "profileUpdated": "Profile updated successfully.",

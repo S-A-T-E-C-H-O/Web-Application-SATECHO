@@ -162,17 +162,8 @@ export const useOnboardingStore = defineStore('onboarding', {
 
         return result
       } catch (error) {
-        const setup = normalizeSetup(this.setup)
-        this.setup = setup
-        writeCompletedSetup(userId, setup)
-        this.completed = true
-        window.localStorage.removeItem(ONBOARDING_DRAFT_KEY)
-        this.finishRequest(i18n.global.t('messages.setupSavedLocal'))
-
-        return {
-          completed: true,
-          message: i18n.global.t('messages.setupSavedLocal'),
-        }
+        this.failRequest(error)
+        throw error
       }
     },
   },

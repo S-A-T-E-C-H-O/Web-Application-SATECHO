@@ -915,7 +915,7 @@ onMounted(async () => {
             <p class="inline-note"><strong>Note:</strong> Events outside active hours will be recorded in history but will not trigger notifications.</p>
           </section>
 
-          <button class="save-button" @click="dashboardStore.saveNotificationPreferences">Save settings</button>
+          <button class="save-button" @click="dashboardStore.saveSecuritySettings">Save settings</button>
         </div>
       </section>
 

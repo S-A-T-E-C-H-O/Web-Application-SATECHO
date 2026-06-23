@@ -15,7 +15,9 @@ const readStoredToken = () => {
   }
 }
 
-const DEFAULT_API_BASE_URL = 'http://agrosafe-back.eastus2.azurecontainer.io:8080'
+const DEFAULT_API_BASE_URL = import.meta.env.PROD
+  ? '/api'
+  : 'http://agrosafe-back.eastus2.azurecontainer.io:8080'
 
 export const createApiClient = (baseURL) => {
   const client = axios.create({
@@ -25,6 +27,12 @@ export const createApiClient = (baseURL) => {
   })
 
   client.interceptors.request.use((config) => {
+    // The application API paths already include `/api`. In production Vercel
+    // provides `/api` as the proxy base, so remove only the duplicated prefix.
+    if (client.defaults.baseURL === '/api' && config.url?.startsWith('/api/')) {
+      config.url = config.url.slice(4)
+    }
+
     const token = readStoredToken()
     if (token) config.headers.Authorization = `Bearer ${token}`
     return config
