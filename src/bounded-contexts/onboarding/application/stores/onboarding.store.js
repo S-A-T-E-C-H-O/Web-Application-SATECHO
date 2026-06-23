@@ -19,17 +19,21 @@ const defaultSetup = () => ({
       crop: '',
     },
   ],
-  devices: {
-    groundSensor: false,
-    valveController: false,
-    weatherStation: false,
-    securityCamera: false,
+})
+
+const normalizeSetup = (setup = {}) => ({
+  property: {
+    ...defaultSetup().property,
+    ...(setup.property || {}),
   },
-  thresholds: {
-    soilMoisture: [50, 80],
-    electricalConductivity: [1.5, 3],
-    soilPh: [6, 7],
-  },
+  irrigationZones:
+    Array.isArray(setup.irrigationZones) && setup.irrigationZones.length
+      ? setup.irrigationZones.map((zone) => ({
+          name: zone.name || '',
+          areaHectares: zone.areaHectares || '',
+          crop: zone.crop || '',
+        }))
+      : defaultSetup().irrigationZones,
 })
 
 const readDraft = () => {
@@ -37,10 +41,7 @@ const readDraft = () => {
   if (!rawDraft) return defaultSetup()
 
   try {
-    return {
-      ...defaultSetup(),
-      ...JSON.parse(rawDraft),
-    }
+    return normalizeSetup(JSON.parse(rawDraft))
   } catch {
     window.localStorage.removeItem(ONBOARDING_DRAFT_KEY)
     return defaultSetup()
@@ -119,16 +120,13 @@ export const useOnboardingStore = defineStore('onboarding', {
 
       if (localSetup?.completed) {
         this.completed = true
-        this.currentStep = 4
-        this.setup = {
-          ...defaultSetup(),
-          ...localSetup.setup,
-        }
+        this.currentStep = 2
+        this.setup = normalizeSetup(localSetup.setup)
         this.finishRequest(i18n.global.t('messages.setupLoadedLocal'))
 
         return {
           completed: true,
-          currentStep: 4,
+          currentStep: 2,
           setup: this.setup,
           message: i18n.global.t('messages.setupLoadedLocal'),
         }
@@ -138,12 +136,8 @@ export const useOnboardingStore = defineStore('onboarding', {
         const result = await onboardingApi.getStatus(userId)
 
         this.completed = result.completed
-        this.currentStep = Number(result.currentStep) || 1
-        this.setup = {
-          ...defaultSetup(),
-          ...this.setup,
-          ...result.setup,
-        }
+        this.currentStep = Math.min(2, Math.max(1, Number(result.currentStep) || 1))
+        this.setup = normalizeSetup({ ...this.setup, ...result.setup })
         this.finishRequest(result.message)
 
         return result
@@ -157,19 +151,20 @@ export const useOnboardingStore = defineStore('onboarding', {
       this.startRequest()
 
       try {
-        const result = await onboardingApi.complete({
-          userId,
-          ...this.setup,
-        })
+        const setup = normalizeSetup(this.setup)
+        const result = await onboardingApi.complete({ userId, ...setup })
 
         this.completed = result.completed
-        writeCompletedSetup(userId, this.setup)
+        this.setup = setup
+        writeCompletedSetup(userId, setup)
         window.localStorage.removeItem(ONBOARDING_DRAFT_KEY)
         this.finishRequest(result.message)
 
         return result
       } catch (error) {
-        writeCompletedSetup(userId, this.setup)
+        const setup = normalizeSetup(this.setup)
+        this.setup = setup
+        writeCompletedSetup(userId, setup)
         this.completed = true
         window.localStorage.removeItem(ONBOARDING_DRAFT_KEY)
         this.finishRequest(i18n.global.t('messages.setupSavedLocal'))
