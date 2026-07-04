@@ -21,8 +21,11 @@ export default defineConfig(({ mode }) => {
         '/api': {
           target:
             env.BACKEND_API_ORIGIN ||
-            'http://agrosafe-back.eastus2.azurecontainer.io:8080',
+            'https://agrosafe-back.bluemeadow-4bdb72df.eastus.azurecontainerapps.io',
           changeOrigin: true,
+          secure: false,
+          timeout: 60000,
+          proxyTimeout: 60000,
         },
       },
     },

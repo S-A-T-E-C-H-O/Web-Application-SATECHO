@@ -40,14 +40,14 @@ farms, irrigation zones and perimeter-security settings.
 ```bash
 # .env for local development (Vite proxy)
 VITE_API_BASE_URL=/api
-BACKEND_API_ORIGIN=http://agrosafe-back.eastus2.azurecontainer.io:8080
+BACKEND_API_ORIGIN=https://agrosafe-back.bluemeadow-4bdb72df.eastus.azurecontainerapps.io
 
 # Vercel Preview and Production
 VITE_API_BASE_URL=/api
 ```
 
 Vite and Vercel proxy `/api/*` to Azure. This keeps browser requests on the
-same origin while Azure remains available over HTTP. The HTTP client
+same origin while the backend is served from Azure Container Apps over HTTPS. The HTTP client
 automatically adds the saved JWT as `Authorization: Bearer <token>`.
 
 The agronomist dashboard, client portfolio, priority cases and presentation-only

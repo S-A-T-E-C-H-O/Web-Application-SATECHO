@@ -17,7 +17,7 @@ const readStoredToken = () => {
 
 const DEFAULT_API_BASE_URL = import.meta.env.PROD
   ? '/api'
-  : 'http://agrosafe-back.eastus2.azurecontainer.io:8080'
+  : 'https://agrosafe-back.bluemeadow-4bdb72df.eastus.azurecontainerapps.io'
 
 export const createApiClient = (baseURL) => {
   const client = axios.create({
