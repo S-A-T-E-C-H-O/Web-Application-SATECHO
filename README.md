@@ -38,16 +38,17 @@ The application uses the deployed Azure backend for authentication, onboarding,
 farms, irrigation zones and perimeter-security settings.
 
 ```bash
-# .env for local development (Vite proxy)
-VITE_API_BASE_URL=/api
+# .env for local development
+VITE_API_BASE_URL=https://agrosafe-back.bluemeadow-4bdb72df.eastus.azurecontainerapps.io
 BACKEND_API_ORIGIN=https://agrosafe-back.bluemeadow-4bdb72df.eastus.azurecontainerapps.io
 
 # Vercel Preview and Production
 VITE_API_BASE_URL=/api
 ```
 
-Vite and Vercel proxy `/api/*` to Azure. This keeps browser requests on the
-same origin while the backend is served from Azure Container Apps over HTTPS. The HTTP client
+Vercel proxies `/api/*` to Azure, keeping production browser requests on the
+same origin. For local development, the backend allows localhost CORS over
+HTTPS, so the frontend can call Azure Container Apps directly. The HTTP client
 automatically adds the saved JWT as `Authorization: Bearer <token>`.
 
 The agronomist dashboard, client portfolio, priority cases and presentation-only
