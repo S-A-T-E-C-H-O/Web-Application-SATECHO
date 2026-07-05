@@ -71,19 +71,19 @@ const routes = [
     {
         path: '/verify-account',
         name: 'verify-account',
-        redirect: '/login',
+        component: VerifyAccountView,
     },
 
     {
         path: '/email-confirmation',
         name: 'email-confirmation',
-        redirect: '/login',
+        component: VerifiedAccountView,
     },
 
     {
         path: '/verification-expired',
         name: 'verification-expired',
-        redirect: '/login',
+        component: ExpiredVerificationLinkView,
     },
 
     {
@@ -111,6 +111,7 @@ const routes = [
     {
         path: '/dashboard/agronomist',
         component: DashboardLayout,
+        meta: { role: 'agronomist' },
         children: [
             {
                 path: '',
@@ -148,14 +149,42 @@ const routes = [
                 component: () => import('@/bounded-contexts/dashboard/presentation/views/AgronomistThresholdsView.vue')
             },
             {
-                path: 'devices',
-                name: 'agronomist-devices',
-                component: () => import('@/bounded-contexts/dashboard/presentation/views/DeviceFleetView.vue')
+                path: 'security',
+                name: 'agronomist-security',
+                component: () => import('@/bounded-contexts/dashboard/presentation/views/AgronomistSecurityView.vue')
             },
             {
                 path: 'notifications',
                 name: 'agronomist-notifications',
                 component: () => import('@/bounded-contexts/dashboard/presentation/views/NotificationsRulesView.vue')
+            }
+        ]
+    },
+
+    {
+        path: '/dashboard/admin',
+        component: DashboardLayout,
+        meta: { role: 'admin' },
+        children: [
+            {
+                path: '',
+                name: 'admin-users',
+                component: () => import('@/bounded-contexts/admin/presentation/views/AdminUsersView.vue')
+            },
+            {
+                path: 'farms',
+                name: 'admin-farms',
+                component: () => import('@/bounded-contexts/admin/presentation/views/AdminFarmsView.vue')
+            },
+            {
+                path: 'devices',
+                name: 'admin-devices',
+                component: () => import('@/bounded-contexts/dashboard/presentation/views/DeviceFleetView.vue')
+            },
+            {
+                path: 'metrics',
+                name: 'admin-metrics',
+                component: () => import('@/bounded-contexts/admin/presentation/views/AdminMetricsView.vue')
             }
         ]
     },
@@ -187,6 +216,15 @@ router.beforeEach((to) => {
                 name: 'login',
                 query: { redirect: to.fullPath },
             }
+        }
+
+        const requiredRole = to.meta?.role
+        if (requiredRole && authStore.user?.role !== requiredRole) {
+            const home = {
+                admin: '/dashboard/admin',
+                agronomist: '/dashboard/agronomist',
+            }[authStore.user?.role] || '/dashboard'
+            return home
         }
     }
 

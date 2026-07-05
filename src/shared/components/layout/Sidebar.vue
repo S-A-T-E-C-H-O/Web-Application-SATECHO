@@ -1,11 +1,49 @@
 <script setup>
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/bounded-contexts/auth/application/stores/auth.store'
+import { useDashboardAgronomistStore } from '@/bounded-contexts/dashboard/application/stores/dashboardAgronomist.store'
 
 const router = useRouter()
 const authStore = useAuthStore()
+const agronomistStore = useDashboardAgronomistStore()
 const isUserMenuOpen = ref(false)
+
+const agronomistNavItems = [
+  { to: '/dashboard/agronomist', label: 'Dashboard', icon: 'dashboard', exact: true },
+  { to: '/dashboard/agronomist/parcels', label: 'Parcels', icon: 'local_florist' },
+  { to: '/dashboard/agronomist/priority-cases', label: 'Priority Cases', icon: 'warning', badgeKey: 'priorityCases' },
+  { to: '/dashboard/agronomist/analysis', label: 'Analysis', icon: 'bar_chart' },
+  { to: '/dashboard/agronomist/thresholds', label: 'Thresholds', icon: 'tune' },
+  { to: '/dashboard/agronomist/security', label: 'Security', icon: 'security' },
+  { to: '/dashboard/agronomist/notifications', label: 'Notifications', icon: 'notifications' },
+]
+
+const adminNavItems = [
+  { to: '/dashboard/admin', label: 'Users', icon: 'group', exact: true },
+  { to: '/dashboard/admin/farms', label: 'Farms', icon: 'agriculture' },
+  { to: '/dashboard/admin/devices', label: 'Fleet', icon: 'sensors' },
+  { to: '/dashboard/admin/metrics', label: 'Metrics', icon: 'monitoring' },
+]
+
+const navItems = computed(() =>
+  authStore.user?.role === 'admin' ? adminNavItems : agronomistNavItems
+)
+
+const roleLabel = computed(() => {
+  const role = authStore.user?.role
+  if (role === 'admin') return 'Administrator'
+  if (role === 'agronomist') return 'Agronomist'
+  return 'Farmer'
+})
+
+const priorityCasesBadgeCount = computed(() => agronomistStore.priorityCases?.length || 0)
+
+const badgeCount = (key) => {
+  if (key !== 'priorityCases') return null
+  const count = priorityCasesBadgeCount.value
+  return count > 0 ? count : null
+}
 
 const toggleUserMenu = () => {
   isUserMenuOpen.value = !isUserMenuOpen.value
@@ -29,42 +67,17 @@ const closeSession = () => {
     </div>
 
     <nav class="nav-menu">
-      <router-link to="/dashboard/agronomist" class="nav-link" exact-active-class="active">
-        <span class="material-symbols-outlined">dashboard</span>
-        Dashboard
-      </router-link>
-      <router-link to="/dashboard/agronomist/parcels" class="nav-link" active-class="active">
-        <span class="material-symbols-outlined">local_florist</span>
-        Parcels
-      </router-link>
-      <router-link to="/dashboard/agronomist/priority-cases" class="nav-link" active-class="active">
-        <span class="material-symbols-outlined">warning</span>
-        Priority Cases
-        <span class="badge red">2</span>
-      </router-link>
-      <router-link to="/dashboard/agronomist/analysis" class="nav-link" active-class="active">
-        <span class="material-symbols-outlined">bar_chart</span>
-        Analysis
-      </router-link>
-      <router-link to="/dashboard/agronomist/thresholds" class="nav-link" active-class="active">
-        <span class="material-symbols-outlined">tune</span>
-        Thresholds
-      </router-link>
-      <a href="#" class="nav-link">
-        <span class="material-symbols-outlined">security</span>
-        Security
-      </a>
-      <router-link to="/dashboard/agronomist/devices" class="nav-link" active-class="active">
-        <span class="material-symbols-outlined">
-          sensors
-        </span>
-        Devices
-      </router-link>
-      <router-link to="/dashboard/agronomist/notifications" class="nav-link" active-class="active">
-        <span class="material-symbols-outlined">
-          notifications
-        </span>
-        Notifications
+      <router-link
+        v-for="item in navItems"
+        :key="item.to"
+        :to="item.to"
+        class="nav-link"
+        :exact-active-class="item.exact ? 'active' : undefined"
+        :active-class="item.exact ? undefined : 'active'"
+      >
+        <span class="material-symbols-outlined">{{ item.icon }}</span>
+        {{ item.label }}
+        <span v-if="item.badgeKey && badgeCount(item.badgeKey)" class="badge red">{{ badgeCount(item.badgeKey) }}</span>
       </router-link>
     </nav>
 
@@ -72,8 +85,8 @@ const closeSession = () => {
       <button class="sidebar-user" @click="toggleUserMenu">
         <img src="https://i.pravatar.cc/150?img=11" alt="User Profile" class="avatar">
         <div class="user-info">
-          <strong>Dr. Mateo Vargas</strong>
-          <small>Agronomist</small>
+          <strong>{{ authStore.user?.fullName || 'User' }}</strong>
+          <small>{{ roleLabel }}</small>
         </div>
         <span class="material-symbols-outlined expand-icon">expand_more</span>
       </button>
