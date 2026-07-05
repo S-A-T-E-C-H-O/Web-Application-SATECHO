@@ -9,6 +9,16 @@ const statusFromTelemetry = (soilHumidity) => {
   return 'Normal'
 }
 
+const relativeTime = (isoString) => {
+  if (!isoString) return 'Recently'
+  const diffMin = Math.max(0, Math.round((Date.now() - new Date(isoString).getTime()) / 60000))
+  if (diffMin < 1) return 'Just now'
+  if (diffMin < 60) return `${diffMin} min ago`
+  const diffHr = Math.round(diffMin / 60)
+  if (diffHr < 24) return `${diffHr}h ago`
+  return `${Math.round(diffHr / 24)}d ago`
+}
+
 const mapClients = (clients) =>
   clients.map((c) => ({
     id: String(c.id),
@@ -47,6 +57,7 @@ const mapSupervisedParcels = (clients) =>
     const status = statusFromTelemetry(c.soilHumidity)
     return {
       id: String(c.id),
+      farmerId: c.farmerId,
       clientInitials: initials,
       clientColor: '#e8f5e9',
       clientText: '#2e7d32',
@@ -90,234 +101,33 @@ const mapSupervisedParcels = (clients) =>
   })
 
 export const useDashboardAgronomistStore = defineStore('dashboardAgronomist', () => {
-  // KPI Data
   const kpis = ref({
-    assignedParcels: 24,
-    normalParcels: 16,
-    atRisk: 6,
-    criticalAlerts: 2
+    assignedParcels: 0,
+    normalParcels: 0,
+    atRisk: 0,
+    criticalAlerts: 0,
   })
 
   const status = ref('idle')
   const error = ref('')
 
-  // Parcels List
-  const parcels = ref([
-    {
-      id: 'p1',
-      client: 'Agro Valle SAC',
-      name: 'North Parcel',
-      crop: 'Avocado',
-      status: 'Normal',
-      metrics: {
-        soilMoisture: { value: 24, unit: '%', trend: 'flat', isAlert: false },
-        ec: { value: 1.2, unit: 'dS/m', trend: 'flat', isAlert: false },
-        ph: { value: 6.5, unit: '', trend: 'flat', isAlert: false },
-        temp: { value: 22, unit: '°C', trend: 'flat', isAlert: false }
-      }
-    },
-    {
-      id: 'p2',
-      client: 'Finca Santa Rosa',
-      name: 'Sector A',
-      crop: 'Blueberry',
-      status: 'At Risk',
-      metrics: {
-        soilMoisture: { value: 12, unit: '%', trend: 'down', isAlert: true },
-        ec: { value: 1.5, unit: 'dS/m', trend: 'flat', isAlert: false },
-        ph: { value: 5.8, unit: '', trend: 'flat', isAlert: false },
-        temp: { value: 25, unit: '°C', trend: 'flat', isAlert: false }
-      }
-    },
-    {
-      id: 'p3',
-      client: 'Huerta Los Pinos',
-      name: 'Greenhouse 2',
-      crop: 'Tomato',
-      status: 'Critical',
-      metrics: {
-        soilMoisture: { value: 28, unit: '%', trend: 'flat', isAlert: false },
-        ec: { value: 3.8, unit: 'dS/m', trend: 'up', isAlert: true },
-        ph: { value: 6.2, unit: '', trend: 'flat', isAlert: false },
-        temp: { value: 28, unit: '°C', trend: 'flat', isAlert: false }
-      }
-    }
-  ])
+  const parcels = ref([])
+  const priorityCases = ref([])
 
-  // Priority Cases
-  const priorityCases = ref([
-    {
-      id: 'c1',
-      parcelName: 'Greenhouse 2',
-      timeAgo: '12 min ago',
-      title: 'High EC detected (3.8 dS/m).',
-      subtitle: 'Critical risk to tomato crop.',
-      type: 'critical'
-    },
-    {
-      id: 'c2',
-      parcelName: 'Sector A',
-      timeAgo: '28 min ago',
-      title: 'Moisture critically low (12%).',
-      subtitle: 'Irrigation system check recommended.',
-      type: 'warning'
-    }
-  ])
-
-  // Parcels View Data
   const parcelKPIs = ref({
-    clients: 12,
-    linkedParcels: 24,
-    pendingInvitations: 2,
-    atRisk: 6
+    clients: 0,
+    linkedParcels: 0,
+    pendingInvitations: 0,
+    atRisk: 0,
   })
 
-  const supervisedParcels = ref([
-    {
-      id: 'sp1',
-      clientInitials: 'AV',
-      clientColor: '#e8f5e9',
-      clientText: '#2e7d32',
-      clientName: 'Agro Valle SAC',
-      parcelName: 'North Parcel',
-      crop: 'Avocado',
-      location: 'Huaral',
-      status: 'Normal',
-      devicesOnline: 4,
-      devicesTotal: 4,
-      lastUpdate: '5 min ago',
-      metrics: {
-        soilMoisture: { value: '45%', label: 'Stable', isAlert: false },
-        ec: { value: '1.2 dS/m', label: 'Optimal', isAlert: false },
-        ph: { value: '6.5', label: 'Balanced', isAlert: false },
-        temp: { value: '22°C', label: 'Stable', isAlert: false }
-      },
-      recommendedRanges: {
-        soilMoisture: '30% - 50%',
-        ec: '1.0 - 1.5',
-        ph: '6.0 - 7.0',
-        temp: '18° - 25°'
-      },
-      recentActivity: [
-        { id: 1, title: 'Irrigation completed successfully', timeAgo: '1 hour ago', type: 'success' },
-        { id: 2, title: 'Routine telemetry sync', timeAgo: '5 min ago', type: 'neutral' }
-      ],
-      agronomicRecommendation: 'Conditions are optimal. Continue standard irrigation schedule.',
-      deviceHealth: {
-        status: 'Online',
-        battery: '95%',
-        signal: 'Stable',
-        lastSync: '5 min ago',
-        deviceId: 'ID: SAT-AV-1042'
-      }
-    },
-    {
-      id: 'sp2',
-      clientInitials: 'FS',
-      clientColor: '#fff3e0',
-      clientText: '#ef6c00',
-      clientName: 'Finca Santa Rosa',
-      parcelName: 'Sector A',
-      crop: 'Blueberry',
-      location: 'Cañete',
-      status: 'At Risk',
-      devicesOnline: 3,
-      devicesTotal: 3,
-      lastUpdate: '12 min ago',
-      metrics: {
-        soilMoisture: { value: '21%', label: 'Below recommended range', isAlert: true },
-        ec: { value: '1.9 dS/m', label: 'Slightly elevated', isAlert: false },
-        ph: { value: '5.6', label: 'Low', isAlert: false },
-        temp: { value: '25°C', label: 'Stable', isAlert: false }
-      },
-      recommendedRanges: {
-        soilMoisture: '28% - 35%',
-        ec: '1.0 - 1.5',
-        ph: '5.5 - 6.5',
-        temp: '20° - 28°'
-      },
-      recentActivity: [
-        { id: 1, title: 'Moisture dropped below threshold', timeAgo: '12 min ago', type: 'danger' },
-        { id: 2, title: 'EC trend increased slightly', timeAgo: '35 min ago', type: 'warning' },
-        { id: 3, title: 'Last recommendation sent', timeAgo: 'Yesterday', type: 'success' }
-      ],
-      agronomicRecommendation: 'Review irrigation schedule and apply a preventive watering adjustment for Sector A to address falling moisture levels and rising EC.',
-      deviceHealth: {
-        status: 'Online',
-        battery: '82%',
-        signal: 'Stable',
-        lastSync: '12 min ago',
-        deviceId: 'ID: SAT-BB-2041'
-      }
-    },
-    {
-      id: 'sp3',
-      clientInitials: 'HL',
-      clientColor: '#ffebee',
-      clientText: '#c62828',
-      clientName: 'Huerta Los Pinos',
-      parcelName: 'Greenhouse 2',
-      crop: 'Tomato',
-      location: 'Pachacámac',
-      status: 'Critical',
-      devicesOnline: 2,
-      devicesTotal: 3,
-      lastUpdate: '3 min ago',
-      metrics: {
-        soilMoisture: { value: '28%', label: 'Stable', isAlert: false },
-        ec: { value: '3.8 dS/m', label: 'Critical level', isAlert: true },
-        ph: { value: '6.2', label: 'Stable', isAlert: false },
-        temp: { value: '28°C', label: 'High', isAlert: true }
-      },
-      recommendedRanges: {
-        soilMoisture: '25% - 35%',
-        ec: '1.5 - 2.5',
-        ph: '6.0 - 7.0',
-        temp: '18° - 26°'
-      },
-      recentActivity: [
-        { id: 1, title: 'Device disconnected', timeAgo: '3 min ago', type: 'danger' },
-        { id: 2, title: 'EC reached critical threshold', timeAgo: '15 min ago', type: 'danger' }
-      ],
-      agronomicRecommendation: 'Urgent: Apply leaching fraction to reduce soil salinity. Verify greenhouse ventilation to lower temperature.',
-      deviceHealth: {
-        status: 'Offline',
-        battery: '15%',
-        signal: 'Weak',
-        lastSync: '3 min ago',
-        deviceId: 'ID: SAT-TM-3051'
-      }
-    },
-    {
-      id: 'sp4',
-      clientInitials: 'CV',
-      clientColor: '#f5f5f5',
-      clientText: '#616161',
-      clientName: 'Campo Verde',
-      parcelName: 'Lettuce Block',
-      crop: 'Lettuce',
-      location: 'Lurín',
-      status: 'Pending Acceptance',
-      devicesOnline: 0,
-      devicesTotal: 0,
-      lastUpdate: 'Not available',
-      metrics: {
-        soilMoisture: { value: '--', label: 'No data', isAlert: false },
-        ec: { value: '--', label: 'No data', isAlert: false },
-        ph: { value: '--', label: 'No data', isAlert: false },
-        temp: { value: '--', label: 'No data', isAlert: false }
-      },
-      recentActivity: [
-        { id: 1, title: 'Invitation sent to client', timeAgo: '2 days ago', type: 'neutral' }
-      ]
-    }
-  ])
+  const supervisedParcels = ref([])
 
   const portfolioSummary = ref({
-    totalClients: 12,
-    activeParcels: 24,
-    pendingInvitations: 2,
-    criticalParcels: 2
+    totalClients: 0,
+    activeParcels: 0,
+    pendingInvitations: 0,
+    criticalParcels: 0,
   })
 
   async function loadDashboard() {
@@ -333,47 +143,48 @@ export const useDashboardAgronomistStore = defineStore('dashboardAgronomist', ()
     if (tasks[0].status === 'fulfilled') {
       const d = tasks[0].value?.data || {}
       kpis.value = {
-        assignedParcels: d.totalFarms ?? kpis.value.assignedParcels,
+        assignedParcels: d.totalFarms ?? 0,
         normalParcels: Number(d.onlineDevices ?? 0),
         atRisk: Number(d.offlineDevices ?? 0) + Number(d.errorDevices ?? 0),
         criticalAlerts: Number(d.lowBatteryDevices ?? 0),
       }
       portfolioSummary.value = {
-        totalClients: d.totalFarms ?? portfolioSummary.value.totalClients,
-        activeParcels: d.activeFarms ?? portfolioSummary.value.activeParcels,
-        pendingInvitations: portfolioSummary.value.pendingInvitations,
+        totalClients: d.totalFarms ?? 0,
+        activeParcels: d.activeFarms ?? 0,
+        pendingInvitations: 0,
         criticalParcels: Number(d.errorDevices ?? 0),
       }
     }
 
+    // The backend returns the priority-case list directly (not wrapped in
+    // `{ cases: [...] }`) — see PriorityCaseResource. Always overwrite, even
+    // with an empty list, so the "no critical cases" empty state is real
+    // (EP-009-US005 Scenario 2) instead of silently keeping stale data.
     if (tasks[1].status === 'fulfilled') {
-      const d = tasks[1].value?.data || {}
-      const cases = Array.isArray(d.cases) ? d.cases : []
-      if (cases.length) {
-        priorityCases.value = cases.map((c) => ({
-          id: String(c.id),
-          parcelName: c.serialNumber || `Device ${c.deviceId}`,
-          timeAgo: 'Just now',
-          title: c.issue || 'Device issue',
-          subtitle: `Type: ${c.type || 'Unknown'} — Health: ${c.healthStatus || 'Unknown'}`,
-          type: c.severity === 'HIGH' ? 'critical' : 'warning',
-        }))
-      }
+      const cases = Array.isArray(tasks[1].value?.data) ? tasks[1].value.data : []
+      priorityCases.value = cases.map((c) => ({
+        id: String(c.alertId),
+        farmerId: c.farmerUserId,
+        farmId: c.farmId,
+        parcelName: c.farmName || `Farmer ${c.farmerUserId}`,
+        timeAgo: relativeTime(c.createdAt),
+        title: (c.alertType || 'Alert').replace(/_/g, ' '),
+        subtitle: `Farmer: ${c.farmerName || 'Unknown'}`,
+        type: c.severity === 'CRITICAL' ? 'critical' : 'warning',
+      }))
     }
 
     if (tasks[2].status === 'fulfilled') {
       const clients = Array.isArray(tasks[2].value?.data) ? tasks[2].value.data : []
-      if (clients.length) {
-        parcels.value = mapClients(clients)
-        supervisedParcels.value = mapSupervisedParcels(clients)
-        parcelKPIs.value = {
-          clients: clients.length,
-          linkedParcels: clients.length,
-          pendingInvitations: 0,
-          atRisk: clients.filter(
-            (c) => c.soilHumidity != null && c.soilHumidity < 35
-          ).length,
-        }
+      parcels.value = mapClients(clients)
+      supervisedParcels.value = mapSupervisedParcels(clients)
+      parcelKPIs.value = {
+        clients: clients.length,
+        linkedParcels: clients.length,
+        pendingInvitations: 0,
+        atRisk: clients.filter(
+          (c) => c.soilHumidity != null && c.soilHumidity < 35
+        ).length,
       }
     }
 

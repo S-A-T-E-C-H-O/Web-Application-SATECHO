@@ -4,12 +4,16 @@ import { useRoute, useRouter } from 'vue-router'
 
 import { useAuthStore } from '@/bounded-contexts/auth/application/stores/auth.store'
 import { useDashboardStore } from '@/bounded-contexts/dashboard/application/stores/dashboard.store'
-import { PLAN_LIMITS } from '@/shared/constants/plans'
+import { useBillingStore } from '@/bounded-contexts/billing/application/stores/billing.store'
+import { apiRequest } from '@/shared/infrastructure/http/api-client'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 const dashboardStore = useDashboardStore()
+const billingStore = useBillingStore()
+
+onMounted(() => billingStore.load())
 
 const irrigationTab = ref('control')
 const securityTab = ref('events')
@@ -34,20 +38,12 @@ const profileForm = ref({
   sizeHectares: '',
 })
 const isZoneDialogOpen = ref(false)
-const isDeviceDialogOpen = ref(false)
 const savingZone = ref(false)
-const savingDevice = ref(false)
 const zoneForm = ref({ id: null, name: '', areaHectares: '', cropType: '' })
-const deviceForm = ref({ serialNumber: '', type: 'SOIL_SENSOR', zoneId: '' })
 
 const planLabel = computed(() => {
-  const labels = {
-    basic: 'Basic',
-    pro: 'Professional',
-    enterprise: 'Enterprise',
-  }
-
-  return labels[currentPlan.value] || 'Professional'
+  const labels = { FREE: 'Free', BASIC: 'Basic', PRO: 'Professional' }
+  return labels[billingStore.currentTier] || billingStore.currentTier
 })
 const memberSince = computed(() => {
   const accounts = JSON.parse(
@@ -75,89 +71,76 @@ const memberSince = computed(() => {
   )
 })
 
-const changePlan = (plan) => {
-  if (plan === currentPlan.value) {
-    dashboardStore.setFeedback(
-        'You are already using this plan.'
-    )
+const changePlan = async (tier) => {
+  if (tier === billingStore.currentTier) {
+    dashboardStore.setFeedback('You are already using this plan.')
     return
   }
-
-  const currentLimits =
-      PLAN_LIMITS[currentPlan.value]
-
-  const newLimits =
-      PLAN_LIMITS[plan]
-
-  const exceedsDevices =
-      dashboardStore.devices.length >
-      newLimits.devices
-
-  const exceedsZones =
-      overview.value.zones.length >
-      newLimits.zones
-
-  const exceedsHectares =
-      (overview.value.farm.sizeHectares || 0) >
-      newLimits.hectares
-
-  const upgrading =
-      newLimits.price >
-      currentLimits.price
-
-  let message = ''
-
-  if (upgrading) {
-    message =
-        `Upgrade to ${plan.toUpperCase()} plan?\n\n` +
-        `Monthly price: $${newLimits.price}\n\n` +
-        `Benefits:\n` +
-        `• More devices\n` +
-        `• More irrigation zones\n` +
-        `• More hectares\n` +
-        `• Advanced monitoring\n` +
-        `• Better scalability\n\n` +
-        `Do you want to continue?`
-  } else {
-    message =
-        `Downgrade to ${plan.toUpperCase()} plan?\n\n` +
-        `Current usage:\n\n` +
-        `Devices: ${dashboardStore.devices.length}/${newLimits.devices}\n` +
-        `Zones: ${overview.value.zones.length}/${newLimits.zones}\n` +
-        `Hectares: ${(overview.value.farm.sizeHectares || 0)}/${newLimits.hectares}\n\n` +
-        `Some features may become unavailable.\n\n` +
-        `Continue anyway?`
-  }
-
-  const confirmed = window.confirm(message)
-
+  const confirmed = window.confirm(`Switch to the ${tier} plan?`)
   if (!confirmed) return
-
-  currentPlan.value = plan
-
-  localStorage.setItem(
-      'userPlan',
-      plan
-  )
-
-  addBillingRecord(
-      plan,
-      newLimits.price
-  )
-
-  if (
-      exceedsDevices ||
-      exceedsZones ||
-      exceedsHectares
-  ) {
-    alert(
-        'Your current usage exceeds the limits of the selected plan. Existing data will remain available, but you may not be able to create additional devices, zones or properties until usage falls below the allowed limits.'
-    )
+  try {
+    await billingStore.subscribe(tier)
+    dashboardStore.setFeedback(`Plan changed to ${tier} successfully.`)
+  } catch (error) {
+    dashboardStore.setFeedback(error.message || 'Could not change plan — it may exceed your current device usage.')
   }
+}
 
-  dashboardStore.setFeedback(
-      `Plan changed to ${plan.toUpperCase()} successfully.`
-  )
+const exportSecurityCsv = async () => {
+  const farmId = overview.value.farm.id
+  if (!farmId) {
+    dashboardStore.setFeedback('No property configured yet.')
+    return
+  }
+  try {
+    const response = await apiRequest({
+      method: 'GET',
+      url: `/api/v1/farms/${farmId}/security/events/export`,
+      responseType: 'blob',
+    })
+    const blob = new Blob([response.data], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `security-events-farm-${farmId}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  } catch (error) {
+    dashboardStore.setFeedback(error.message || 'Could not export security events.')
+  }
+}
+
+const downloadWaterReport = async (zoneId) => {
+  const toDate = new Date()
+  const fromDate = new Date(toDate.getTime() - 30 * 24 * 60 * 60 * 1000)
+  try {
+    const response = await apiRequest({
+      method: 'GET',
+      url: `/api/v1/zones/${zoneId}/irrigation/reports/water-consumption`,
+      params: { fromDate: fromDate.toISOString(), toDate: toDate.toISOString() },
+      responseType: 'blob',
+    })
+    const blob = new Blob([response.data], { type: 'application/pdf' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `water-consumption-zone-${zoneId}.pdf`
+    a.click()
+    URL.revokeObjectURL(url)
+  } catch (error) {
+    dashboardStore.setFeedback(error.message || 'Could not generate the report.')
+  }
+}
+
+const cancelSubscription = async () => {
+  const confirmed = window.confirm('Cancel your subscription? It stays active until the end of the current period, then downgrades to Free.')
+  if (!confirmed) return
+  try {
+    await billingStore.cancel()
+    dashboardStore.setFeedback('Subscription cancelled.')
+  } catch (error) {
+    dashboardStore.setFeedback(error.message || 'Could not cancel subscription.')
+  }
 }
 
 const addEmergencyContact = () => {
@@ -333,69 +316,6 @@ const saveZone = async () => {
   }
 }
 
-const openRegisterDevice = () => {
-  deviceForm.value = { serialNumber: '', type: 'SOIL_SENSOR', zoneId: '' }
-  isDeviceDialogOpen.value = true
-}
-
-const saveDevice = async () => {
-  savingDevice.value = true
-  try {
-    await dashboardStore.registerDevice({ ...deviceForm.value, zoneId: deviceForm.value.zoneId || null })
-    isDeviceDialogOpen.value = false
-  } catch (error) {
-    dashboardStore.setFeedback(error.message || 'Device could not be registered.')
-  } finally {
-    savingDevice.value = false
-  }
-}
-
-const currentPlan = ref(
-    localStorage.getItem('userPlan') || 'pro'
-)
-
-const billingHistory = ref(
-    JSON.parse(
-        localStorage.getItem('billingHistory')
-    ) || []
-)
-const addBillingRecord = (
-    plan,
-    price
-) => {
-  billingHistory.value.unshift({
-    date: new Date().toLocaleDateString(),
-    plan: plan.toUpperCase(),
-    amount: `$${price}`,
-    status: 'Paid',
-  })
-
-  localStorage.setItem(
-      'billingHistory',
-      JSON.stringify(
-          billingHistory.value
-      )
-  )
-}
-
-onMounted(() => {
-  if (billingHistory.value.length === 0) {
-    addBillingRecord(
-        currentPlan.value,
-        PLAN_LIMITS[currentPlan.value].price
-    )
-  }
-})
-
-const currentPlanLimits = computed(() => {
-  return PLAN_LIMITS[currentPlan.value]
-})
-
-const planUsage = computed(() => ({
-  hectares: overview.value.farm.sizeHectares || 0,
-  zones: overview.value.zones.length,
-  devices: dashboardStore.devices.length,
-}))
 
 const goTo = (key) => {
   router.push(`/dashboard/${key === 'dashboard' ? '' : key}`.replace(/\/$/, ''))
@@ -471,12 +391,17 @@ const syncProfileForm = () => {
 }
 
 const saveProfile = async () => {
-  authStore.updateProfile({
-    fullName: profileForm.value.fullName,
-    email: profileForm.value.email,
-    phone: profileForm.value.phone,
-    location: profileForm.value.location,
-  })
+  try {
+    await authStore.updateProfile({
+      fullName: profileForm.value.fullName,
+      email: profileForm.value.email,
+      phone: profileForm.value.phone,
+      location: profileForm.value.location,
+    })
+  } catch (error) {
+    dashboardStore.setFeedback(error.message || 'Profile could not be updated.')
+    return
+  }
   try {
     await dashboardStore.updateFarmProfile(profileForm.value)
   } catch (error) {
@@ -490,7 +415,7 @@ const saveProfile = async () => {
   )
 }
 
-const updatePassword = () => {
+const updatePassword = async () => {
   const {
     currentPassword,
     newPassword,
@@ -508,7 +433,8 @@ const updatePassword = () => {
   if (currentPassword === newPassword) {dashboardStore.setFeedback('New password must be different from the current password.')
     return
   }
-  try {authStore.changePassword(currentPassword, newPassword)
+  try {
+    await authStore.changePassword(currentPassword, newPassword)
     passwordForm.value = {
       currentPassword: '',
       newPassword: '',
@@ -568,11 +494,10 @@ const viewFullHistory = () => {
 
 const deleteAccount = () => {
   const confirmed = window.confirm(
-      'This action is irreversible.\n\nAll farm data, devices, irrigation history, profile information and settings will be permanently deleted.\n\nDo you want to continue?'
+      'Account deletion is not yet available from the web app.\n\nThis will sign you out and clear locally saved preferences on this device, but your farm data and account remain on the server. Contact support to request full account deletion.\n\nDo you want to continue?'
   )
   if (!confirmed) return
   authStore.deleteAccount()
-  dashboardStore.setFeedback('Account deleted successfully.')
   router.push('/login')
 }
 
@@ -703,6 +628,31 @@ onMounted(async () => {
           </article>
         </div>
 
+        <div v-if="dashboardStore.farmerKpis" class="metric-grid three crop-health-row">
+          <article class="metric-card" :class="{ 'crop-health-critical': dashboardStore.farmerKpis.criticalMoisture }">
+            <div>
+              <span>Avg. moisture (7d)</span>
+              <strong>{{ dashboardStore.farmerKpis.avgMoisture7d != null ? `${dashboardStore.farmerKpis.avgMoisture7d.toFixed(1)}%` : '—' }}</strong>
+              <small>{{ dashboardStore.farmerKpis.criticalMoisture ? 'Below healthy range' : 'Healthy range' }}</small>
+            </div>
+            <span class="metric-icon material-symbols-outlined">water_drop</span>
+          </article>
+          <article class="metric-card">
+            <div>
+              <span>Avg. EC (7d)</span>
+              <strong>{{ dashboardStore.farmerKpis.avgEc7d != null ? `${dashboardStore.farmerKpis.avgEc7d.toFixed(2)} dS/m` : '—' }}</strong>
+            </div>
+            <span class="metric-icon material-symbols-outlined">bolt</span>
+          </article>
+          <article class="metric-card">
+            <div>
+              <span>Irrigation (7d)</span>
+              <strong>{{ dashboardStore.farmerKpis.weeklyIrrigationHours != null ? `${dashboardStore.farmerKpis.weeklyIrrigationHours.toFixed(1)}h` : '—' }}</strong>
+            </div>
+            <span class="metric-icon material-symbols-outlined">schedule</span>
+          </article>
+        </div>
+
         <section class="surface-card alert-list">
           <header class="card-title-row">
             <div>
@@ -790,6 +740,9 @@ onMounted(async () => {
                 Active irrigation ·
                 {{ irrigationElapsed(zone) }}
               </span>
+              <button class="icon-button" title="Download water consumption report (PDF)" @click="downloadWaterReport(zone.id)">
+                <span class="material-symbols-outlined">picture_as_pdf</span>
+              </button>
             </header>
             <div class="sensor-grid">
               <div><span class="material-symbols-outlined">water_drop</span><strong>{{ zone.humidity }}%</strong><small>Humidity</small></div>
@@ -886,7 +839,10 @@ onMounted(async () => {
             <h1>Perimeter Security</h1>
             <p>Monitoring and security events on your property</p>
           </div>
-          <span class="soft-danger-pill">{{ dashboardStore.unreadSecurityEvents }} unreviewed event</span>
+          <div class="row-heading-actions">
+            <button class="outline-button compact" @click="exportSecurityCsv"><span class="material-symbols-outlined">download</span> Export CSV</button>
+            <span class="soft-danger-pill">{{ dashboardStore.unreadSecurityEvents }} unreviewed event</span>
+          </div>
         </div>
 
         <div class="metric-grid three">
@@ -981,9 +937,8 @@ onMounted(async () => {
         <div class="page-heading row-heading">
           <div>
             <h1>IoT Devices</h1>
-            <p>Manage and monitor all connected devices</p>
+            <p>Devices are provisioned by SATECHO — view status here once your hardware is connected.</p>
           </div>
-          <button class="primary-action slim" @click="openRegisterDevice"><span class="material-symbols-outlined">add</span> Register device</button>
         </div>
 
         <div class="metric-grid three">
@@ -1278,13 +1233,14 @@ onMounted(async () => {
             Manage your current plan, limits and billing.
           </p>
         </div>
+        <p v-if="billingStore.error" class="error-text">{{ billingStore.error }}</p>
         <div class="metric-grid three">
           <article class="status-card success">
       <span class="material-symbols-outlined">
         workspace_premium
       </span>
             <strong>
-              {{ currentPlan.toUpperCase() }}
+              {{ billingStore.currentTier }}
             </strong>
             <p>Current plan</p>
           </article>
@@ -1315,95 +1271,17 @@ onMounted(async () => {
           </div>
           <p>
             You are currently subscribed to the
-            <strong>{{ currentPlan.toUpperCase() }}</strong>
+            <strong>{{ billingStore.currentTier }}</strong>
             plan.
+            <span v-if="billingStore.subscription?.status">Status: {{ billingStore.subscription.status }}</span>
           </p>
-          <ul class="subscription-benefits">
-            <li>
-              Maximum hectares:
-              {{ currentPlanLimits.hectares }}
-            </li>
-            <li>
-              Maximum zones:
-              {{ currentPlanLimits.zones }}
-            </li>
-            <li>
-              Maximum devices:
-              {{ currentPlanLimits.devices }}
-            </li>
-          </ul>
-        </section>
-
-        <!-- Usage Overview -->
-        <section class="surface-card table-card">
-          <div class="page-heading">
-            <h2>Usage Overview</h2>
-          </div>
-          <div class="usage-list">
-            <div class="usage-item">
-              <span>Hectares</span>
-              <strong>
-                {{ planUsage.hectares }}
-                /
-                {{ currentPlanLimits.hectares }}
-              </strong>
-              <progress
-                  :value="planUsage.hectares"
-                  :max="currentPlanLimits.hectares">
-              </progress>
-            </div>
-            <div class="usage-item">
-              <span>Zones</span>
-              <strong>
-                {{ planUsage.zones }}
-                /
-                {{ currentPlanLimits.zones }}
-              </strong>
-              <progress
-                  :value="planUsage.zones"
-                  :max="currentPlanLimits.zones">
-              </progress>
-            </div>
-            <div class="usage-item">
-              <span>Devices</span>
-              <strong>
-                {{ planUsage.devices }}
-                /
-                {{ currentPlanLimits.devices }}
-              </strong>
-              <progress
-                  :value="planUsage.devices"
-                  :max="currentPlanLimits.devices">
-              </progress>
-            </div>
-          </div>
-        </section>
-
-        <!-- Features -->
-        <section class="surface-card table-card">
-          <div class="page-heading">
-            <h2>Plan Features</h2>
-          </div>
-          <ul class="subscription-benefits">
-            <div class="feature-row">
-              <span>Security Monitoring</span>
-              <strong>
-                {{ currentPlanLimits.security ? 'Enabled' : 'Disabled' }}
-              </strong>
-            </div>
-            <div class="feature-row">
-              <span>SMS Alerts:</span>
-              <strong>
-                {{ currentPlanLimits.smsAlerts ? 'Enabled' : 'Disabled' }}
-              </strong>
-            </div>
-            <div class="feature-row">
-              <span>Maximum Users:</span>
-              <strong>
-                {{ currentPlanLimits.users }}
-              </strong>
-            </div>
-          </ul>
+          <button
+              v-if="billingStore.subscription && billingStore.currentTier !== 'FREE'"
+              class="ghost-button"
+              @click="cancelSubscription"
+          >
+            Cancel subscription
+          </button>
         </section>
 
         <!-- Available Plans -->
@@ -1413,28 +1291,16 @@ onMounted(async () => {
           </div>
           <div class="plan-actions">
             <button
+                v-for="plan in billingStore.plans"
+                :key="plan.tier"
                 class="plan-button"
-                :class="{ active: currentPlan === 'basic' }"
-                @click="changePlan('basic')"
+                :class="{ active: billingStore.currentTier === plan.tier }"
+                @click="changePlan(plan.tier)"
             >
-              <strong>BASIC</strong>
-              <small>$39.90 / month</small>
-            </button>
-            <button
-                class="plan-button"
-                :class="{ active: currentPlan === 'pro' }"
-                @click="changePlan('pro')"
-            >
-              <strong>Pro</strong>
-              <small>$79.99 / month</small>
-            </button>
-            <button
-                class="plan-button"
-                :class="{ active: currentPlan === 'enterprise' }"
-                @click="changePlan('enterprise')"
-            >
-              <strong>Enterprise</strong>
-              <small>$199.99 / month</small>
+              <strong>{{ plan.name }}</strong>
+              <small>${{ plan.priceMonthly }} / month</small>
+              <small v-if="plan.maxDevices">Up to {{ plan.maxDevices }} devices</small>
+              <small v-if="plan.maxFarms">Up to {{ plan.maxFarms }} farms</small>
             </button>
           </div>
         </section>
@@ -1449,7 +1315,7 @@ onMounted(async () => {
             <thead>
             <tr>
               <th>Date</th>
-              <th>Plan</th>
+              <th>Description</th>
               <th>Amount</th>
               <th>Status</th>
             </tr>
@@ -1457,17 +1323,20 @@ onMounted(async () => {
 
             <tbody>
             <tr
-                v-for="(item,index) in billingHistory"
-                :key="index"
+                v-for="item in billingStore.invoices"
+                :key="item.id"
             >
-              <td>{{ item.date }}</td>
-              <td>{{ item.plan }}</td>
-              <td>{{ item.amount }}</td>
+              <td>{{ item.issuedAt ? new Date(item.issuedAt).toLocaleDateString() : '—' }}</td>
+              <td>{{ item.description }}</td>
+              <td>{{ item.currency }} {{ item.amount }}</td>
               <td>
           <span class="status-paid">
             {{ item.status }}
           </span>
               </td>
+            </tr>
+            <tr v-if="billingStore.invoices.length === 0">
+              <td colspan="4">No billing history yet.</td>
             </tr>
             </tbody>
           </table>
@@ -1641,18 +1510,6 @@ onMounted(async () => {
       </form>
     </div>
 
-    <div v-if="isDeviceDialogOpen" class="dialog-backdrop" @click.self="isDeviceDialogOpen = false">
-      <form class="dialog-panel" @submit.prevent="saveDevice">
-        <header class="dialog-header">
-          <div><h2>Register IoT device</h2><p>New devices are pending activation until hardware provisioning is completed.</p></div>
-          <button type="button" class="icon-button" aria-label="Close" @click="isDeviceDialogOpen = false"><span class="material-symbols-outlined">close</span></button>
-        </header>
-        <label class="form-field"><span>Serial number</span><input v-model.trim="deviceForm.serialNumber" required></label>
-        <label class="form-field"><span>Device type</span><select v-model="deviceForm.type"><option value="SOIL_SENSOR">Soil sensor</option><option value="VALVE_CONTROLLER">Valve controller</option><option value="PIR_SENSOR">PIR sensor</option><option value="WEATHER_STATION">Weather station</option><option value="ACTUATOR">Actuator</option></select></label>
-        <label class="form-field"><span>Assign to zone (optional)</span><select v-model="deviceForm.zoneId"><option value="">Not assigned</option><option v-for="zone in zones" :key="zone.id" :value="zone.id">{{ zone.name }}</option></select></label>
-        <footer class="dialog-actions"><button type="button" class="outline-button" @click="isDeviceDialogOpen = false">Cancel</button><button class="primary-action" :disabled="savingDevice">{{ savingDevice ? 'Registering...' : 'Register device' }}</button></footer>
-      </form>
-    </div>
   </main>
 </template>
 
@@ -2256,6 +2113,12 @@ td,
   gap: 20px;
 }
 
+.row-heading-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .metric-grid {
   display: grid;
   gap: 16px;
@@ -2286,6 +2149,19 @@ td,
   grid-template-columns: 1fr 36px;
   gap: 12px;
   padding: 16px;
+}
+
+.crop-health-row {
+  margin-top: 16px;
+}
+
+.metric-card.crop-health-critical {
+  border: 1px solid #dc2626;
+  background: #fef2f2;
+}
+
+.metric-card.crop-health-critical strong {
+  color: #dc2626;
 }
 
 .metric-card strong {
@@ -2628,6 +2504,22 @@ dd {
 .plan-button.active {
   border-color: #456c4c;
   background: #f3f8f4;
+}
+
+.error-text {
+  color: #c62828;
+  font-weight: 600;
+}
+
+.ghost-button {
+  margin-top: 12px;
+  border: 1px solid #ccc;
+  background: white;
+  color: #4b5563;
+  padding: 8px 16px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 600;
 }
 
 .plan-badge {

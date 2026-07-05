@@ -228,28 +228,6 @@ export const farmApi = {
     }
   },
 
-  async registerDevice({ serialNumber, type, zoneId }) {
-    const response = await apiRequest({
-      method: 'POST',
-      url: '/api/v1/devices',
-      data: { serialNumber, type },
-    })
-    let device = response.data || {}
-    if (zoneId && !device.id) {
-      const devicesResponse = await apiRequest({ method: 'GET', url: '/api/v1/devices' })
-      const devices = Array.isArray(devicesResponse.data) ? devicesResponse.data : []
-      device = devices.find((item) => item.serialNumber === serialNumber) || device
-    }
-    if (zoneId && device.id) {
-      await apiRequest({
-        method: 'POST',
-        url: `/api/v1/zones/${zoneId}/devices`,
-        data: { deviceId: device.id },
-      })
-    }
-    return device
-  },
-
   async getDeviceStatus(deviceId) {
     const response = await apiRequest({ method: 'GET', url: `/api/v1/devices/${deviceId}/status` })
     return response.data || {}

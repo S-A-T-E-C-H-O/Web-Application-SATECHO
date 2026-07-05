@@ -102,6 +102,7 @@ export const useDashboardStore = defineStore('dashboard', {
     securitySettings: null,
     notificationPreferences: defaultNotificationPreferences(),
     cropTypes: [],
+    farmerKpis: null,
     status: 'idle',
     error: '',
     feedback: '',
@@ -164,6 +165,7 @@ export const useDashboardStore = defineStore('dashboard', {
         operationsApi.getSecuritySettings(),
         farmApi.getCropTypes(),
         operationsApi.getNotificationPreferences(),
+        operationsApi.getFarmerKpis(),
       ])
 
       if (tasks[0].status === 'fulfilled') {
@@ -179,6 +181,7 @@ export const useDashboardStore = defineStore('dashboard', {
       }
       if (tasks[5].status === 'fulfilled') this.cropTypes = tasks[5].value
       if (tasks[6].status === 'fulfilled') applyServerPreferences(this.notificationPreferences, tasks[6].value)
+      if (tasks[7].status === 'fulfilled') this.farmerKpis = tasks[7].value
 
       const failures = tasks.filter((task) => task.status === 'rejected')
       this.status = failures.length ? 'partial' : 'success'
@@ -207,12 +210,6 @@ export const useDashboardStore = defineStore('dashboard', {
       })
       await this.loadDashboard()
       this.setFeedback('Property details updated.')
-    },
-
-    async registerDevice({ serialNumber, type, zoneId }) {
-      await farmApi.registerDevice({ serialNumber, type, zoneId })
-      await this.loadDashboard()
-      this.setFeedback('Device registered. It will remain pending activation until hardware provisioning is completed.')
     },
 
     async refreshDeviceStatus(deviceId) {

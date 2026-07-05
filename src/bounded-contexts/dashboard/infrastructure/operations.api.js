@@ -122,4 +122,10 @@ export const operationsApi = {
     const resp = await apiRequest({ method: 'GET', url: '/api/v1/notifications/preferences' })
     return Array.isArray(resp?.data) ? resp.data : []
   },
+
+  /** EP-012-US023: 7-day crop health KPIs (EP-004-US001 dashboard). */
+  async getFarmerKpis() {
+    const resp = await apiRequest({ method: 'GET', url: '/api/v1/dashboard/farmer' })
+    return resp?.data || null
+  },
 }
