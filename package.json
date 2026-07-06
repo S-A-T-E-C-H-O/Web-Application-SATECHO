@@ -10,7 +10,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "seed:dataset": "node scripts/seed-dataset.mjs"
   },
   "dependencies": {
     "axios": "^1.16.1",
