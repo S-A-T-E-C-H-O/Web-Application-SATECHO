@@ -7,6 +7,7 @@ export const useBillingStore = defineStore('billing', {
     plans: [],
     subscription: null,
     invoices: [],
+    payments: [],
     status: 'idle',
     error: '',
     feedback: '',
@@ -15,6 +16,13 @@ export const useBillingStore = defineStore('billing', {
   getters: {
     isLoading: (state) => state.status === 'loading',
     currentTier: (state) => state.subscription?.tierName || 'FREE',
+    currentPlan: (state) => {
+      const tier = state.subscription?.tierName || state.subscription?.planType || 'FREE'
+      if (!state.plans.length) return null
+      return state.plans.find(
+        (p) => (p.tier || p.name || '').toUpperCase() === tier.toUpperCase()
+      ) || null
+    },
   },
 
   actions: {
@@ -37,14 +45,16 @@ export const useBillingStore = defineStore('billing', {
     async load() {
       this.startRequest()
       try {
-        const [plans, subscription, invoices] = await Promise.all([
+        const [plans, subscription, invoices, payments] = await Promise.all([
           billingApi.getPlans(),
           billingApi.getCurrentSubscription(),
           billingApi.getInvoices(),
+          billingApi.getPayments(),
         ])
         this.plans = plans
         this.subscription = subscription
         this.invoices = invoices
+        this.payments = payments
         this.finishRequest()
       } catch (error) {
         this.failRequest(error)

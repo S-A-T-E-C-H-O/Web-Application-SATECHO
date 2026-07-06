@@ -17,6 +17,8 @@ const agronomistNavItems = [
   { to: '/dashboard/agronomist/thresholds', label: 'Thresholds', icon: 'tune' },
   { to: '/dashboard/agronomist/security', label: 'Security', icon: 'security' },
   { to: '/dashboard/agronomist/notifications', label: 'Notifications', icon: 'notifications' },
+  { to: '/dashboard/agronomist/account', label: 'Account & Devices', icon: 'devices' },
+  { to: '/dashboard/agronomist/profile', label: 'Profile & Plans', icon: 'settings' },
 ]
 
 const adminNavItems = [
