@@ -157,6 +157,16 @@ const routes = [
                 path: 'notifications',
                 name: 'agronomist-notifications',
                 component: () => import('@/bounded-contexts/dashboard/presentation/views/NotificationsRulesView.vue')
+            },
+            {
+                path: 'account',
+                name: 'agronomist-account',
+                component: () => import('@/bounded-contexts/dashboard/presentation/views/AgronomistAccountDevicesView.vue')
+            },
+            {
+                path: 'profile',
+                name: 'agronomist-profile',
+                component: () => import('@/bounded-contexts/dashboard/presentation/views/AgronomistProfilePlansView.vue')
             }
         ]
     },
@@ -185,6 +195,18 @@ const routes = [
                 path: 'metrics',
                 name: 'admin-metrics',
                 component: () => import('@/bounded-contexts/admin/presentation/views/AdminMetricsView.vue')
+            }
+        ]
+    },
+
+    {
+        path: '/dashboard/billing',
+        component: DashboardLayout,
+        children: [
+            {
+                path: '',
+                name: 'billing',
+                component: () => import('@/bounded-contexts/dashboard/presentation/views/BillingSubscriptionView.vue')
             }
         ]
     },
