@@ -130,6 +130,7 @@ import { useRouter } from 'vue-router'
 
 import AuthLayout from '@/shared/layouts/AuthLayout.vue'
 import { useAuthStore } from '@/bounded-contexts/auth/application/stores/auth.store'
+import { apiRequest } from '@/shared/infrastructure/http/api-client'
 
 const showPassword = ref(false)
 const email = ref('')
@@ -167,12 +168,19 @@ const handleLogin = async () => {
     window.localStorage.setItem('userRole', session.user.role)
   }
 
-  const role = window.localStorage.getItem('userRole')
-  if (role === 'agronomist') {
-    router.push('/onboarding-agronomist')
-  } else {
-    router.push('/onboarding')
+  const role = session.user?.role || window.localStorage.getItem('userRole')
+
+  try {
+    const statusResp = await apiRequest({ method: 'GET', url: '/api/v1/onboarding/status' })
+    if (statusResp?.data?.completed) {
+      router.push(role === 'agronomist' ? '/dashboard/agronomist' : '/dashboard')
+      return
+    }
+  } catch {
+    // fallback — proceed to onboarding if status check fails
   }
+
+  router.push(role === 'agronomist' ? '/onboarding-agronomist' : '/onboarding')
 }
 </script>
 

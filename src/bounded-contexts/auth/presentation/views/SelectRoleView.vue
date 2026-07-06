@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { countries } from '@/shared/constants/countries'
+import { apiRequest } from '@/shared/infrastructure/http/api-client'
 import {
   validateFullName,
   validateEmail,
@@ -120,6 +121,17 @@ const submitRegistration = async () => {
 
     const role = session.user?.role || selectedRole.value
     window.localStorage.setItem('userRole', role)
+
+    try {
+      const statusResp = await apiRequest({ method: 'GET', url: '/api/v1/onboarding/status' })
+      if (statusResp?.data?.completed) {
+        router.push(role === 'agronomist' ? '/dashboard/agronomist' : '/dashboard')
+        return
+      }
+    } catch {
+      // fallback — proceed to onboarding if status check fails
+    }
+
     router.push(role === 'agronomist' ? '/onboarding-agronomist' : '/onboarding')
   } catch {
   }

@@ -220,7 +220,13 @@ async function saveNotifications() {
       return apiRequest({
         method: 'PUT',
         url: '/api/v1/notifications/preferences',
-        data: { notificationType: type, channelsEnabled: channels },
+        data: {
+          notificationType: type,
+          channelsEnabled: channels,
+          dailyDigestEnabled: true,
+          quietHoursStart: '22:00',
+          quietHoursEnd: '06:00',
+        },
       })
     })
     await Promise.all(promises)

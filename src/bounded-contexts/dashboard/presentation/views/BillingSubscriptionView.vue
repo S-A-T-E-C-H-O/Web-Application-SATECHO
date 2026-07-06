@@ -248,13 +248,13 @@ const tabs = [
     <div v-if="activeTab === 'payments'" class="tab-content">
       <div class="content-card">
         <h2>Payment History</h2>
-        <p class="section-subtitle">Record of all payments made.</p>
+        <p class="section-subtitle">Record of all payments made to your account.</p>
         <div class="table-wrapper">
           <table>
             <thead>
               <tr>
                 <th>Date</th>
-                <th>Method</th>
+                <th>Description</th>
                 <th>Amount</th>
                 <th>Transaction ID</th>
                 <th>Status</th>
@@ -265,8 +265,8 @@ const tabs = [
                 <td colspan="5" class="empty-cell">No payments yet.</td>
               </tr>
               <tr v-for="pmt in billingStore.payments" :key="pmt.id">
-                <td>{{ formatDate(pmt.processedAt || pmt.createdAt) }}</td>
-                <td>{{ pmt.paymentMethod || '—' }}</td>
+                <td>{{ formatDate(pmt.processedAt || pmt.issuedAt || pmt.createdAt) }}</td>
+                <td>{{ pmt.description || 'Monthly plan' }}</td>
                 <td>{{ formatCurrency(pmt.amount, pmt.currency) }}</td>
                 <td class="tx-id">{{ pmt.transactionId || '—' }}</td>
                 <td>
