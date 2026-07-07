@@ -208,8 +208,17 @@ export const useAuthStore = defineStore('auth', {
       this.feedback = i18n.global.t('messages.profileUpdated')
     },
 
-    changePassword(_currentPassword, _newPassword) {
-      return true
+    async changePassword(currentPassword, newPassword) {
+      this.startRequest()
+
+      try {
+        const result = await authApi.changePassword({ currentPassword, newPassword })
+        this.finishRequest(result.message)
+        return true
+      } catch (error) {
+        this.failRequest(error)
+        throw error
+      }
     },
 
     deleteAccount() {
@@ -240,13 +249,10 @@ export const useAuthStore = defineStore('auth', {
       this.startRequest()
 
       try {
-        await new Promise((resolve) => setTimeout(resolve, 1200))
-        const result = {
-          email,
-          accountExists: true,
-          message:
-            'If an account exists with that email, recovery instructions have been sent.',
+        if (!email) {
+          throw { message: 'Email is required.' }
         }
+        const result = await authApi.forgotPassword(email)
         this.finishRequest(result.message)
         return result
       } catch (error) {
@@ -255,12 +261,17 @@ export const useAuthStore = defineStore('auth', {
       }
     },
 
-    async resetPassword({ email, password }) {
+    async resetPassword({ token, newPassword }) {
       this.startRequest()
 
       try {
-        await new Promise((resolve) => setTimeout(resolve, 800))
-        const result = { success: true, message: 'Password updated successfully.' }
+        if (!token) {
+          throw { message: 'Reset link is invalid or incomplete. Request a new one.' }
+        }
+        if (!newPassword || newPassword.length < 8) {
+          throw { message: 'Password must contain at least 8 characters.' }
+        }
+        const result = await authApi.resetPassword({ token, newPassword })
         this.finishRequest(result.message)
         return result
       } catch (error) {
