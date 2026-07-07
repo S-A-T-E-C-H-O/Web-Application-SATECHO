@@ -122,6 +122,14 @@ const submitRegistration = async () => {
     const role = session.user?.role || selectedRole.value
     window.localStorage.setItem('userRole', role)
 
+    if (session.requiresLogin || !session.accessToken) {
+      router.push({
+        path: '/login',
+        query: { registered: 'success', email: email.value },
+      })
+      return
+    }
+
     try {
       const statusResp = await apiRequest({ method: 'GET', url: '/api/v1/onboarding/status' })
       if (statusResp?.data?.completed) {

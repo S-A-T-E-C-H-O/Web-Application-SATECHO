@@ -125,8 +125,8 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { onMounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 
 import AuthLayout from '@/shared/layouts/AuthLayout.vue'
 import { useAuthStore } from '@/bounded-contexts/auth/application/stores/auth.store'
@@ -137,11 +137,21 @@ const email = ref('')
 const password = ref('')
 const rememberMe = ref(false)
 const router = useRouter()
+const route = useRoute()
 const authStore = useAuthStore()
 
 const togglePassword = () => {
   showPassword.value = !showPassword.value
 }
+
+onMounted(() => {
+  if (route.query.registered === 'success') {
+    email.value = String(route.query.email || '')
+    authStore.status = 'success'
+    authStore.error = ''
+    authStore.feedback = 'Registro exitoso'
+  }
+})
 
 const handleLogin = async () => {
   let session
