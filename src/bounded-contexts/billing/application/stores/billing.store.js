@@ -2,6 +2,12 @@ import { defineStore } from 'pinia'
 
 import { billingApi } from '@/bounded-contexts/billing/infrastructure/billing.api'
 
+const normalizePlanTier = (tier) => {
+  const value = String(tier || 'BASIC').toUpperCase()
+  if (value === 'FREE' || value === 'STARTER') return 'BASIC'
+  return value
+}
+
 export const useBillingStore = defineStore('billing', {
   state: () => ({
     plans: [],
@@ -15,14 +21,14 @@ export const useBillingStore = defineStore('billing', {
 
   getters: {
     isLoading: (state) => state.status === 'loading',
-    // SubscriptionResource exposes `planType` (STARTER|PRO|ENTERPRISE); `tierName`
-    // is kept as a legacy fallback only.
-    currentTier: (state) => state.subscription?.planType || state.subscription?.tierName || 'FREE',
+    // SubscriptionResource may expose STARTER as the entry-level tier. The product
+    // UI names that tier Basic, and new accounts default to it visually.
+    currentTier: (state) => normalizePlanTier(state.subscription?.planType || state.subscription?.tierName),
     currentPlan: (state) => {
-      const tier = state.subscription?.planType || state.subscription?.tierName || 'FREE'
+      const tier = normalizePlanTier(state.subscription?.planType || state.subscription?.tierName)
       if (!state.plans.length) return null
       return state.plans.find(
-        (p) => (p.tier || p.name || '').toUpperCase() === tier.toUpperCase()
+        (p) => normalizePlanTier(p.tier || p.name) === tier
       ) || null
     },
   },

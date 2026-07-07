@@ -24,9 +24,16 @@ const memberSince = computed(() => {
   return new Date(acct.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long' })
 })
 
+function planDisplayName(tier) {
+  const value = String(tier || 'BASIC').toUpperCase()
+  if (value === 'FREE' || value === 'STARTER' || value === 'BASIC') return 'Basic'
+  if (value === 'PRO') return 'Pro'
+  if (value === 'ENTERPRISE') return 'Enterprise'
+  return value
+}
+
 const planLabel = computed(() => {
-  const tier = billingStore.subscription?.tierName || billingStore.subscription?.planType || 'FREE'
-  return tier.charAt(0).toUpperCase() + tier.slice(1).toLowerCase()
+  return planDisplayName(billingStore.currentTier)
 })
 
 const filteredDevices = computed(() => {

@@ -10,9 +10,20 @@ const error = ref('')
 const isChangingPlan = ref(false)
 const isCancelling = ref(false)
 
+function normalizePlanTier(tier) {
+  const value = String(tier || 'BASIC').toUpperCase()
+  if (value === 'FREE' || value === 'STARTER') return 'BASIC'
+  return value
+}
+
+function planDisplayName(tier) {
+  const labels = { BASIC: 'Basic', PRO: 'Pro', ENTERPRISE: 'Enterprise' }
+  const normalized = normalizePlanTier(tier)
+  return labels[normalized] || normalized
+}
+
 const planLabel = computed(() => {
-  const tier = billingStore.currentTier
-  return tier.charAt(0).toUpperCase() + tier.slice(1).toLowerCase()
+  return planDisplayName(billingStore.currentTier)
 })
 
 const planStatus = computed(() => {
@@ -41,7 +52,7 @@ const planLimits = computed(() => {
 
 function planPrice(plan) {
   const price = plan.price || plan.pricePerHaPerMonth || 0
-  if (price === 0) return 'Free'
+  if (price === 0) return 'Included'
   return `$${price.toFixed(2)}/mo`
 }
 
@@ -60,7 +71,7 @@ onMounted(() => {
 
 async function changePlan(plan) {
   const tier = plan.tier || plan.name || ''
-  if (billingStore.currentTier.toUpperCase() === tier.toUpperCase()) {
+  if (normalizePlanTier(billingStore.currentTier) === normalizePlanTier(tier)) {
     feedback.value = 'You are already on this plan.'
     return
   }
@@ -174,7 +185,7 @@ const tabs = [
           </ul>
         </div>
 
-        <div v-if="planLabel !== 'Free'" class="action-row">
+        <div v-if="planLabel !== 'Basic'" class="action-row">
           <button class="danger-btn" :disabled="isCancelling" @click="cancelSubscription">
             {{ isCancelling ? 'Cancelling...' : 'Cancel Subscription' }}
           </button>
@@ -186,9 +197,9 @@ const tabs = [
     <div v-if="activeTab === 'plans'" class="tab-content">
       <div class="plans-grid-wide">
         <div v-for="plan in billingStore.plans" :key="plan.id || plan.name" class="plan-card"
-          :class="{ active: (plan.tier || plan.name || '').toUpperCase() === planLabel.toUpperCase() }">
+          :class="{ active: normalizePlanTier(plan.tier || plan.name) === normalizePlanTier(billingStore.currentTier) }">
           <div class="plan-top">
-            <div class="plan-tier">{{ plan.name || plan.tier }}</div>
+            <div class="plan-tier">{{ planDisplayName(plan.tier || plan.name) }}</div>
             <div class="plan-cost">{{ planPrice(plan) }}</div>
             <p class="plan-desc">{{ plan.description || '' }}</p>
           </div>
@@ -200,10 +211,10 @@ const tabs = [
             <li><span class="material-symbols-outlined">check_circle</span> Up to {{ plan.maxDevices }} devices</li>
           </ul>
           <button class="plan-cta"
-            :class="{ 'current-plan': (plan.tier || plan.name || '').toUpperCase() === planLabel.toUpperCase() }"
-            :disabled="isChangingPlan || (plan.tier || plan.name || '').toUpperCase() === planLabel.toUpperCase()"
+            :class="{ 'current-plan': normalizePlanTier(plan.tier || plan.name) === normalizePlanTier(billingStore.currentTier) }"
+            :disabled="isChangingPlan || normalizePlanTier(plan.tier || plan.name) === normalizePlanTier(billingStore.currentTier)"
             @click="changePlan(plan)">
-            {{ (plan.tier || plan.name || '').toUpperCase() === planLabel.toUpperCase() ? 'Current' : `Switch to ${plan.name || plan.tier}` }}
+            {{ normalizePlanTier(plan.tier || plan.name) === normalizePlanTier(billingStore.currentTier) ? 'Current' : `Switch to ${planDisplayName(plan.tier || plan.name)}` }}
           </button>
         </div>
       </div>
