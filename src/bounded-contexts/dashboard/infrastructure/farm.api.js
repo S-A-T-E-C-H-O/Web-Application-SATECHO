@@ -294,6 +294,18 @@ export const farmApi = {
     return response.data || {}
   },
 
+  async claimDemoEdgeDevice({ farmId, zoneId }) {
+    const response = await apiRequest({
+      method: 'POST',
+      url: '/api/v1/edge/devices/claim-demo',
+      data: {
+        farm_id: Number(farmId),
+        zone_id: Number(zoneId),
+      },
+    })
+    return response.data || {}
+  },
+
   async deactivateDevice(deviceId) {
     const response = await apiRequest({ method: 'POST', url: `/api/v1/devices/${deviceId}/deactivate` })
     return response.data || {}
