@@ -115,8 +115,19 @@ export const useAuthStore = defineStore('auth', {
         const accessToken = result.accessToken
 
         if (!accessToken) {
-          throw {
-            message: 'El registro se completo, pero el servidor no devolvio una sesion valida.',
+          this.user = null
+          this.accessToken = null
+          this.pendingVerificationEmail = ''
+          window.sessionStorage.removeItem(PENDING_VERIFICATION_KEY)
+          this.finishRequest('Registro exitoso')
+
+          return {
+            ...result,
+            user,
+            accessToken: null,
+            requiresLogin: true,
+            requiresVerification: false,
+            message: 'Registro exitoso',
           }
         }
 
