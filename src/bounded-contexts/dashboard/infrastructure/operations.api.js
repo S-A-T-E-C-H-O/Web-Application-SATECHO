@@ -28,7 +28,7 @@ export const operationsApi = {
         type: String(e.classification || 'Motion detected').replace(/_/g, ' '),
         trust: e.confidenceLevel != null ? Math.round(e.confidenceLevel * 100) : 100,
         note: '',
-        location: e.locationDescription || `Zone ${e.zoneId || 301}`,
+        location: e.locationDescription || (e.zoneId ? `Zone ${e.zoneId}` : 'Unknown zone'),
         time: e.detectedAt || e.recordedAt || e.createdAt
             ? new Date(e.detectedAt || e.recordedAt || e.createdAt).toLocaleString()
             : 'Unknown',

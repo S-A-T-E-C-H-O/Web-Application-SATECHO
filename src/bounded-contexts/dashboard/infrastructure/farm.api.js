@@ -274,6 +274,26 @@ export const farmApi = {
     return response.data || {}
   },
 
+  async getZoneLatestTelemetry(zoneId) {
+    const response = await apiRequest({ method: 'GET', url: `/api/v1/telemetry/zones/${zoneId}/latest` })
+    return mapReadings(Array.isArray(response.data) ? response.data : [])
+  },
+
+  async claimEdgeDevice({ serialNumber, deviceCode, farmId, zoneId, linkToZone = true }) {
+    const response = await apiRequest({
+      method: 'POST',
+      url: '/api/v1/edge/devices/claim',
+      data: {
+        serial_number: serialNumber,
+        device_code: deviceCode,
+        farm_id: Number(farmId),
+        zone_id: Number(zoneId),
+        link_to_zone: Boolean(linkToZone),
+      },
+    })
+    return response.data || {}
+  },
+
   async deactivateDevice(deviceId) {
     const response = await apiRequest({ method: 'POST', url: `/api/v1/devices/${deviceId}/deactivate` })
     return response.data || {}
