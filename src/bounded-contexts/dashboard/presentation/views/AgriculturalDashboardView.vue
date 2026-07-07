@@ -40,6 +40,7 @@ const savingZone = ref(false)
 const zoneForm = ref({ id: null, name: '', areaHectares: '', cropType: '' })
 const isEdgeDialogOpen = ref(false)
 const claimingEdge = ref(false)
+const claimingDemoEdge = ref(false)
 const edgeForm = ref({
   serialNumber: 'SEN-SAT-0401',
   deviceCode: 'edge-shared-secret-change-me',
@@ -272,6 +273,12 @@ const filteredDevices = computed(() =>
   })
 )
 const canClaimEdgeDevice = computed(() => Boolean(overview.value.farm.id && zones.value.length))
+const hasZoneReadings = computed(() =>
+  zones.value.some((zone) =>
+    [zone.humidity, zone.ec, zone.ph, zone.temp].some((value) => value !== undefined && value !== null && value !== '--')
+  )
+)
+const shouldShowDemoEsp32Cta = computed(() => !dashboardStore.devices.length || !hasZoneReadings.value)
 
 const cropOptions = computed(() =>
   dashboardStore.cropTypes.length
@@ -338,6 +345,20 @@ const claimEdgeDevice = async () => {
     dashboardStore.setFeedback(error.message || 'ESP32 could not be linked.')
   } finally {
     claimingEdge.value = false
+  }
+}
+
+const connectDemoEsp32 = async () => {
+  claimingDemoEdge.value = true
+  try {
+    await dashboardStore.claimDemoEdgeDevice({
+      farmId: overview.value.farm.id,
+      zoneId: edgeForm.value.zoneId || zones.value[0]?.id,
+    })
+  } catch (error) {
+    dashboardStore.setFeedback(error.message || 'ESP32 demo could not be connected.')
+  } finally {
+    claimingDemoEdge.value = false
   }
 }
 
@@ -669,14 +690,14 @@ onUnmounted(() => {
           </article>
         </div>
 
-        <section v-if="!dashboardStore.devices.length" class="surface-card edge-cta-card">
+        <section v-if="shouldShowDemoEsp32Cta" class="surface-card edge-cta-card">
           <span class="material-symbols-outlined">developer_board</span>
           <div>
-            <h2>Vincular ESP32</h2>
-            <p>Conecta tu dispositivo Edge real para activar telemetria en las zonas de esta cuenta.</p>
+            <h2>Conectar ESP32 demo</h2>
+            <p>Activa un ESP32 demo con la granja y zona reales de esta cuenta para empezar a ver telemetria.</p>
           </div>
-          <button class="primary-action" :disabled="!canClaimEdgeDevice" @click="openEdgeDialog">
-            Vincular ESP32
+          <button class="primary-action" :disabled="claimingDemoEdge || !canClaimEdgeDevice" @click="connectDemoEsp32">
+            {{ claimingDemoEdge ? 'Conectando...' : 'Conectar ESP32 demo' }}
           </button>
         </section>
 
@@ -1000,14 +1021,14 @@ onUnmounted(() => {
         </div>
 
 
-        <section v-if="!dashboardStore.devices.length" class="surface-card edge-cta-card">
+        <section v-if="shouldShowDemoEsp32Cta" class="surface-card edge-cta-card">
           <span class="material-symbols-outlined">developer_board</span>
           <div>
-            <h2>Vincular ESP32</h2>
-            <p>Conecta el ESP32 real a tu cuenta autenticada para empezar a recibir telemetria de tus zonas.</p>
+            <h2>Conectar ESP32 demo</h2>
+            <p>Usa el flujo demo para reclamar un ESP32 con la granja y zona reales de tu cuenta.</p>
           </div>
-          <button class="primary-action" :disabled="!canClaimEdgeDevice" @click="openEdgeDialog">
-            Vincular ESP32
+          <button class="primary-action" :disabled="claimingDemoEdge || !canClaimEdgeDevice" @click="connectDemoEsp32">
+            {{ claimingDemoEdge ? 'Conectando...' : 'Conectar ESP32 demo' }}
           </button>
         </section>
         <div class="metric-grid three">
@@ -1056,8 +1077,8 @@ onUnmounted(() => {
               <tr v-if="!filteredDevices.length">
                 <td colspan="10" class="empty-table">
                   No devices are registered for this account.
-                  <button v-if="!dashboardStore.devices.length" class="inline-link-button" :disabled="!canClaimEdgeDevice" @click="openEdgeDialog">
-                    Vincular ESP32
+                  <button v-if="shouldShowDemoEsp32Cta" class="inline-link-button" :disabled="claimingDemoEdge || !canClaimEdgeDevice" @click="connectDemoEsp32">
+                    Conectar ESP32 demo
                   </button>
                 </td>
               </tr>
@@ -1623,6 +1644,9 @@ onUnmounted(() => {
         <p v-if="!canClaimEdgeDevice" class="inline-note">Completa el onboarding y crea al menos una zona para vincular un ESP32.</p>
         <footer class="dialog-actions">
           <button type="button" class="outline-button" @click="isEdgeDialogOpen = false">Cancel</button>
+          <button type="button" class="outline-button" :disabled="claimingDemoEdge || !canClaimEdgeDevice" @click="connectDemoEsp32">
+            {{ claimingDemoEdge ? 'Conectando...' : 'Conectar demo' }}
+          </button>
           <button class="primary-action" :disabled="claimingEdge || !canClaimEdgeDevice">{{ claimingEdge ? 'Vinculando...' : 'Vincular ESP32' }}</button>
         </footer>
       </form>

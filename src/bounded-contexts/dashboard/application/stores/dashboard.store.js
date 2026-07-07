@@ -253,6 +253,22 @@ export const useDashboardStore = defineStore('dashboard', {
       this.setFeedback('ESP32 linked successfully.')
     },
 
+    async claimDemoEdgeDevice(payload = {}) {
+      const farmId = payload.farmId || this.overview.farm.id
+      const zoneId = payload.zoneId || this.overview.zones[0]?.id
+      if (!farmId) throw new Error('Create or finish onboarding for a property before connecting a demo ESP32.')
+      if (!zoneId) throw new Error('Create at least one irrigation zone before connecting a demo ESP32.')
+
+      await farmApi.claimDemoEdgeDevice({ farmId, zoneId })
+      await Promise.allSettled([
+        farmApi.getDevices(),
+        operationsApi.getFarmerKpis(),
+        farmApi.getZoneLatestTelemetry(zoneId),
+      ])
+      await this.loadDashboard()
+      this.setFeedback('ESP32 demo connected successfully.')
+    },
+
     async deactivateDevice(deviceId) {
       await farmApi.deactivateDevice(deviceId)
       await this.loadDashboard()
