@@ -2,28 +2,63 @@ import { defineStore } from 'pinia'
 
 import { billingApi } from '@/bounded-contexts/billing/infrastructure/billing.api'
 
+/**
+ * Normalizes the plan tier name for the client UI.
+ * Maps 'FREE' or 'STARTER' to 'BASIC', returning other tier names in uppercase.
+ * 
+ * @param {string} tier - The original plan tier name.
+ * @returns {string} The normalized tier name.
+ */
 const normalizePlanTier = (tier) => {
   const value = String(tier || 'BASIC').toUpperCase()
   if (value === 'FREE' || value === 'STARTER') return 'BASIC'
   return value
 }
 
+/**
+ * Pinia store for managing billing and subscription state.
+ */
 export const useBillingStore = defineStore('billing', {
+  /**
+   * Global billing state.
+   */
   state: () => ({
+    /** @type {Array} List of available subscription plans */
     plans: [],
+    /** @type {Object|null} Information about the current active user subscription */
     subscription: null,
+    /** @type {Array} User invoice list/history */
     invoices: [],
+    /** @type {Array} User payment transaction history */
     payments: [],
+    /** @type {'idle'|'loading'|'success'|'error'|'partial'} API request status */
     status: 'idle',
+    /** @type {string} Error message if the API request fails */
     error: '',
+    /** @type {string} Feedback message when the API request succeeds */
     feedback: '',
   }),
 
   getters: {
+    /**
+     * Determines whether a billing network request is in progress.
+     * @param {Object} state - The store state.
+     * @returns {boolean} True if loading, false otherwise.
+     */
     isLoading: (state) => state.status === 'loading',
-    // SubscriptionResource may expose STARTER as the entry-level tier. The product
-    // UI names that tier Basic, and new accounts default to it visually.
+    
+    /**
+     * Retrieves the current normalized plan tier name.
+     * @param {Object} state - The store state.
+     * @returns {string} The normalized tier name (e.g. 'BASIC', 'PRO', 'ENTERPRISE').
+     */
     currentTier: (state) => normalizePlanTier(state.subscription?.planType || state.subscription?.tierName),
+    
+    /**
+     * Finds the full plan details matching the current active subscription.
+     * @param {Object} state - The store state.
+     * @returns {Object|null} The matching plan object, or null if not found.
+     */
     currentPlan: (state) => {
       const tier = normalizePlanTier(state.subscription?.planType || state.subscription?.tierName)
       if (!state.plans.length) return null
@@ -34,22 +69,39 @@ export const useBillingStore = defineStore('billing', {
   },
 
   actions: {
+    /**
+     * Starts a network request by setting status to 'loading' and clearing previous messages.
+     */
     startRequest() {
       this.status = 'loading'
       this.error = ''
       this.feedback = ''
     },
 
+    /**
+     * Finalizes a successful network request and sets a feedback message.
+     * @param {string} [message=''] - Optional feedback message.
+     */
     finishRequest(message = '') {
       this.status = 'success'
       this.feedback = message
     },
 
+    /**
+     * Handles a failed network request, updating state and setting the error message.
+     * @param {Error|Object} error - The caught error object.
+     */
     failRequest(error) {
       this.status = 'error'
       this.error = error?.message || 'The request could not be completed.'
     },
 
+    /**
+     * Concurrently loads all billing related data: plans, active subscription, invoices, and payments.
+     * Gracefully handles partial failures by setting the status to 'partial'.
+     * 
+     * @async
+     */
     async load() {
       this.startRequest()
 
@@ -72,6 +124,14 @@ export const useBillingStore = defineStore('billing', {
       this.feedback = ''
     },
 
+    /**
+     * Subscribes the user to a specific plan tier. Updates subscription if one exists,
+     * or registers a new one if not. Refreshes invoices and payments on success.
+     * 
+     * @async
+     * @param {string} planType - The tier/type of the plan to subscribe to.
+     * @throws {Error} Propagates the caught error if the operation fails.
+     */
     async subscribe(planType) {
       this.startRequest()
       try {
@@ -87,6 +147,12 @@ export const useBillingStore = defineStore('billing', {
       }
     },
 
+    /**
+     * Cancels the user's active subscription.
+     * 
+     * @async
+     * @throws {Error} Propagates the caught error if the cancellation fails.
+     */
     async cancel() {
       this.startRequest()
       try {
