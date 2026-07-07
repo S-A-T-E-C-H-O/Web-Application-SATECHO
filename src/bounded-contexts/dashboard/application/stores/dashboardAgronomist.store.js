@@ -134,25 +134,45 @@ export const useDashboardAgronomistStore = defineStore('dashboardAgronomist', ()
     status.value = 'loading'
     error.value = ''
 
+    // There is no GET /api/v1/dashboard/agronomist in the backend — the KPIs
+    // are derived from real endpoints instead: the device fleet
+    // (GET /api/v1/devices) and the client roster (clients/detailed below).
     const tasks = await Promise.allSettled([
-      apiRequest({ method: 'GET', url: '/api/v1/dashboard/agronomist' }),
+      apiRequest({ method: 'GET', url: '/api/v1/devices' }),
       apiRequest({ method: 'GET', url: '/api/v1/dashboard/priority-cases' }),
       apiRequest({ method: 'GET', url: '/api/v1/agronomist/clients/detailed' }),
     ])
 
-    if (tasks[0].status === 'fulfilled') {
-      const d = tasks[0].value?.data || {}
+    const devices = tasks[0].status === 'fulfilled' && Array.isArray(tasks[0].value?.data)
+      ? tasks[0].value.data
+      : []
+    const clientRows = tasks[2].status === 'fulfilled' && Array.isArray(tasks[2].value?.data)
+      ? tasks[2].value.data
+      : []
+
+    if (tasks[0].status === 'fulfilled' || tasks[2].status === 'fulfilled') {
+      const onlineDevices = devices.filter((d) => d.online).length
+      const offlineDevices = devices.length - onlineDevices
+      const errorDevices = devices.filter(
+        (d) => String(d.healthStatus || '').toUpperCase() === 'ERROR'
+      ).length
+      const lowBatteryDevices = devices.filter(
+        (d) => d.batteryLevel != null && Number(d.batteryLevel) < 20
+      ).length
+
       kpis.value = {
-        assignedParcels: d.totalFarms ?? 0,
-        normalParcels: Number(d.onlineDevices ?? 0),
-        atRisk: Number(d.offlineDevices ?? 0) + Number(d.errorDevices ?? 0),
-        criticalAlerts: Number(d.lowBatteryDevices ?? 0),
+        assignedParcels: clientRows.length,
+        normalParcels: onlineDevices,
+        atRisk: offlineDevices + errorDevices,
+        criticalAlerts: lowBatteryDevices,
       }
       portfolioSummary.value = {
-        totalClients: d.totalFarms ?? 0,
-        activeParcels: d.activeFarms ?? 0,
+        totalClients: clientRows.length,
+        activeParcels: clientRows.length,
         pendingInvitations: 0,
-        criticalParcels: Number(d.errorDevices ?? 0),
+        criticalParcels: clientRows.filter(
+          (c) => c.soilHumidity != null && c.soilHumidity < 20
+        ).length,
       }
     }
 
@@ -188,9 +208,12 @@ export const useDashboardAgronomistStore = defineStore('dashboardAgronomist', ()
       }
     }
 
-    const failed = tasks.some((t) => t.status === 'rejected')
-    status.value = failed ? 'partial' : 'success'
-    if (failed) error.value = 'Some data loaded from cache.'
+    const failed = tasks.filter((t) => t.status === 'rejected')
+    status.value = failed.length ? 'partial' : 'success'
+    if (failed.length) {
+      error.value =
+        failed[0].reason?.message || 'Some dashboard data could not be loaded.'
+    }
   }
 
   return {

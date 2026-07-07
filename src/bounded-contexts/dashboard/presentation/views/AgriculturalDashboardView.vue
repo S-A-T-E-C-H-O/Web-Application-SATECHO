@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { useAuthStore } from '@/bounded-contexts/auth/application/stores/auth.store'
@@ -12,8 +12,6 @@ const router = useRouter()
 const authStore = useAuthStore()
 const dashboardStore = useDashboardStore()
 const billingStore = useBillingStore()
-
-onMounted(() => billingStore.load())
 
 const irrigationTab = ref('control')
 const securityTab = ref('events')
@@ -156,16 +154,6 @@ const removeEmergencyContact = (id) => {
           contact => contact.id !== id
       )
 }
-
-onMounted(() => {
-  if (
-      !preferences.value.whatsappPhone &&
-      authStore.user?.phone
-  ) {
-    preferences.value.whatsappPhone =
-        `${authStore.user.countryCode} ${authStore.user.phone}`
-  }
-})
 
 const userInitials = computed(() => {
   const fullName =
@@ -449,12 +437,6 @@ const toggleUserMenu = () => {
 }
 
 const profilePhoto = ref('')
-onMounted(() => {
-  profilePhoto.value =
-      localStorage.getItem(
-          `profilePhoto_${authStore.user?.id}`
-      ) || ''
-})
 
 function handleProfilePhoto(event) {
   const file = event.target.files?.[0]
@@ -501,9 +483,31 @@ const deleteAccount = () => {
   router.push('/login')
 }
 
+let dashboardRefreshInterval = null
+
 onMounted(async () => {
+  billingStore.load()
+
+  if (!preferences.value.whatsappPhone && authStore.user?.phone) {
+    preferences.value.whatsappPhone =
+        `${authStore.user.countryCode} ${authStore.user.phone}`
+  }
+
+  profilePhoto.value =
+      localStorage.getItem(`profilePhoto_${authStore.user?.id}`) || ''
+
   await dashboardStore.loadDashboard()
   syncProfileForm()
+
+  dashboardRefreshInterval = window.setInterval(() => {
+    dashboardStore.loadDashboard()
+  }, 10000)
+})
+
+onUnmounted(() => {
+  if (dashboardRefreshInterval) {
+    window.clearInterval(dashboardRefreshInterval)
+  }
 })
 </script>
 
@@ -976,12 +980,15 @@ onMounted(async () => {
               <th>Status</th>
               <th>Battery</th>
               <th>Health</th>
+              <th>Moisture</th>
+              <th>EC</th>
+              <th>Temp</th>
               <th>Last reading</th>
               <th>Actions</th>
             </tr>
             </thead>
             <tbody>
-              <tr v-if="!filteredDevices.length"><td colspan="7" class="empty-table">No devices are registered for this account.</td></tr>
+              <tr v-if="!filteredDevices.length"><td colspan="10" class="empty-table">No devices are registered for this account.</td></tr>
               <tr v-for="device in filteredDevices" :key="device.id">
                 <td>
                   <div class="device-cell">
@@ -1005,6 +1012,9 @@ onMounted(async () => {
                 <td><span class="online-chip" :class="{ online: device.online, offline: !device.online }"><span class="material-symbols-outlined">{{ device.online ? 'wifi' : 'wifi_off' }}</span>{{ device.status.replace(/_/g, ' ') }}</span></td>
                 <td><span :class="{ dangerText: Number(device.battery) <= 20 }"><span class="material-symbols-outlined tiny">battery_full</span> {{ device.battery === '--' ? '--' : `${device.battery}%` }}</span></td>
                 <td><span class="health-chip" :class="device.health?.toLowerCase()">{{ device.health }}</span></td>
+                <td>{{ device.moisture === '--' ? '--' : `${device.moisture}%` }}</td>
+                <td>{{ device.ec === '--' ? '--' : `${device.ec} dS/m` }}</td>
+                <td>{{ device.temperature === '--' ? '--' : `${device.temperature} °C` }}</td>
                 <td><span class="material-symbols-outlined tiny">schedule</span> {{ device.lastReading }}</td>
                 <td>
                   <div class="row-actions">

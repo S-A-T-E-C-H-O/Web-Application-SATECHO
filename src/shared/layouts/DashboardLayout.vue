@@ -17,6 +17,7 @@ import TopNav from '../components/layout/TopNav.vue'
 
 <style scoped>
 .dashboard-layout {
+  --sidebar-width: 250px;
   display: flex;
   min-height: 100vh;
   background-color: #f8f9fa;
@@ -27,9 +28,9 @@ import TopNav from '../components/layout/TopNav.vue'
   flex: 1;
   display: flex;
   flex-direction: column;
-  min-width: 0; /* Important to prevent flex children from blowing out width */
+  min-width: 0;
+  margin-left: var(--sidebar-width, 250px);
 }
-
 .content-area {
   flex: 1;
   padding: 32px;

@@ -7,16 +7,27 @@ export const billingApi = {
   },
 
   async getCurrentSubscription() {
-    const response = await apiRequest({ method: 'GET', url: '/api/v1/subscriptions/me' })
-    return response.data || null
+    try {
+      const response = await apiRequest({ method: 'GET', url: '/api/v1/subscriptions/me' })
+      return response.data || null
+    } catch (error) {
+      // Subscription endpoint unavailable for now: "console.warn('[Billing] Current subscription unavailable:', error.message || error)"
+      return null
+    }
   },
 
-  async subscribe(planTier) {
-    const response = await apiRequest({
-      method: 'POST',
-      url: '/api/v1/subscriptions/me',
-      data: { planTier },
-    })
+  // Backend contract (SubscriptionController):
+  //   POST /api/v1/subscriptions      → create the first subscription
+  //   PUT  /api/v1/subscriptions/me   → change the plan of the existing one
+  // Both accept { planType: STARTER|PRO|ENTERPRISE, billingCycle: MONTHLY|QUARTERLY|ANNUAL }.
+  async subscribe(planType, { hasSubscription = false, billingCycle = 'MONTHLY' } = {}) {
+    const payload = {
+      planType: String(planType || '').toUpperCase(),
+      billingCycle: String(billingCycle || 'MONTHLY').toUpperCase(),
+    }
+    const response = hasSubscription
+      ? await apiRequest({ method: 'PUT', url: '/api/v1/subscriptions/me', data: payload })
+      : await apiRequest({ method: 'POST', url: '/api/v1/subscriptions', data: payload })
     return response.data
   },
 

@@ -105,14 +105,25 @@ const closeSession = () => {
 
 <style scoped>
 .sidebar {
-  width: 250px;
+  --sidebar-width: 250px;
+
+  width: var(--sidebar-width);
+
   background-color: #fcfcfc;
   border-right: 1px solid #eaeaea;
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  position: sticky;
-  top: 0;
+
+  display:flex;
+  flex-direction:column;
+
+  height:100vh;
+
+  position:fixed;
+  top:0;
+  left:0;
+
+  overflow-y:auto;
+
+  z-index:100;
 }
 
 .logo {

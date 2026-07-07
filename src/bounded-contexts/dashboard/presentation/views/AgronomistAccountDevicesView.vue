@@ -57,8 +57,8 @@ const lastActivityLabel = (device) => {
 }
 
 const sessionElapsed = (session) => {
-  if (!session.startTime) return '—'
-  const minutes = Math.max(0, Math.round((Date.now() - new Date(session.startTime).getTime()) / 60000))
+  if (!session.startedAt) return '—'
+  const minutes = Math.max(0, Math.round((Date.now() - new Date(session.startedAt).getTime()) / 60000))
   if (minutes < 60) return `${minutes} min`
   return `${Math.round(minutes / 60)}h ${minutes % 60}m`
 }
@@ -121,13 +121,13 @@ async function loadActiveSessions() {
       for (const zone of zones) {
         try {
           const activeResp = await apiRequest({ method: 'GET', url: `/api/v1/zones/${zone.id}/irrigation/active` })
-          if (activeResp?.data && activeResp.data.status !== 'INACTIVE' && activeResp.data.status !== 'STOPPED') {
+          if (activeResp?.data && activeResp.data.status === 'ACTIVE') {
             sessions.push({
               id: activeResp.data.id,
               zoneName: zone.name || `Zone ${zone.id}`,
               clientName: client.farmerName || `Farmer ${client.farmerId}`,
               cropType: zone.cropType || client.cropType || '—',
-              startTime: activeResp.data.startTime,
+              startedAt: activeResp.data.startedAt,
               status: activeResp.data.status || 'ACTIVE',
               duration: sessionElapsed(activeResp.data),
             })
@@ -295,11 +295,11 @@ async function loadActiveSessions() {
             </div>
             <div class="session-row">
               <span>Crop</span>
-              <strong>{{ session.cropType.replace(/_/g, ' ').split(' ').map(w => w[0] + w.slice(1).toLowerCase()).join(' ') }}</strong>
+              <strong>{{ typeof session.cropType === 'string' ? session.cropType.charAt(0).toUpperCase() + session.cropType.slice(1).toLowerCase() : session.cropType }}</strong>
             </div>
             <div class="session-row">
               <span>Started</span>
-              <strong>{{ session.startTime ? new Date(session.startTime).toLocaleString() : '—' }}</strong>
+              <strong>{{ session.startedAt ? new Date(session.startedAt).toLocaleString() : '—' }}</strong>
             </div>
             <div class="session-row">
               <span>Elapsed</span>

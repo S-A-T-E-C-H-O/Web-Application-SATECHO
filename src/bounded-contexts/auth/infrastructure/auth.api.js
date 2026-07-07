@@ -80,4 +80,39 @@ export const authApi = {
     const data = response?.data || {}
     return { message: data.message || 'Verification email sent.' }
   },
+
+  async forgotPassword(email) {
+    const response = await apiRequest({
+      method: 'POST',
+      url: '/api/v1/authentication/forgot-password',
+      data: { email },
+    })
+    const data = response?.data || {}
+    return {
+      email,
+      message:
+        data.message ||
+        'If an account exists with that email, recovery instructions have been sent.',
+    }
+  },
+
+  async resetPassword({ token, newPassword }) {
+    const response = await apiRequest({
+      method: 'POST',
+      url: '/api/v1/authentication/reset-password',
+      data: { token, newPassword },
+    })
+    const data = response?.data || {}
+    return { success: true, message: data.message || 'Password updated successfully.' }
+  },
+
+  async changePassword({ currentPassword, newPassword }) {
+    const response = await apiRequest({
+      method: 'POST',
+      url: '/api/v1/me/change-password',
+      data: { currentPassword, newPassword },
+    })
+    const data = response?.data || {}
+    return { success: true, message: data.message || 'Password updated successfully.' }
+  },
 }

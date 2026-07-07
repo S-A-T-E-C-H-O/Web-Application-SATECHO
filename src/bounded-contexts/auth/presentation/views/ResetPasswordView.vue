@@ -215,6 +215,12 @@ const email = computed(() =>
     String(route.query.email || '')
 )
 
+// The recovery email links here as /reset-password?token=... — the token is
+// what the backend requires; the email is only informative.
+const token = computed(() =>
+    String(route.query.token || '')
+)
+
 const hasUppercase = computed(() =>
     /[A-Z]/.test(password.value)
 )
@@ -276,8 +282,8 @@ const handleSubmit = async () => {
 
   try {
     await authStore.resetPassword({
-      email: email.value,
-      password: password.value,
+      token: token.value,
+      newPassword: password.value,
     })
 
     await router.push({
@@ -289,7 +295,7 @@ const handleSubmit = async () => {
 }
 
 onMounted(() => {
-  if (!email.value) {
+  if (!token.value) {
     router.replace('/forgot-password')
   }
 })

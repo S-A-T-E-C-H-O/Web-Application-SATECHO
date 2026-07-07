@@ -59,6 +59,21 @@ const zoneStatus = (readings, thresholds = {}) => {
   return outside ? 'attention' : 'normal'
 }
 
+const getLatestReadingsByZone = async (zoneId) => {
+  if (!zoneId) return {}
+
+  try {
+    const response = await apiRequest({
+      method: 'GET',
+      url: `/api/v1/telemetry/zones/${zoneId}/latest`,
+    })
+
+    return mapReadings(Array.isArray(response.data) ? response.data : [])
+  } catch {
+    return {}
+  }
+}
+
 const getFarmContext = async () => {
   const farmsResponse = await apiRequest({ method: 'GET', url: '/api/v1/farms' })
   const farms = Array.isArray(farmsResponse.data) ? farmsResponse.data : []
@@ -201,31 +216,57 @@ export const farmApi = {
 
   async getDevices(type = 'all', status = 'all') {
     const { zones } = await getFarmContext()
-    const zoneNameByDeviceId = new Map(
-      zones.filter((zone) => zone.deviceId).map((zone) => [String(zone.deviceId), zone.name])
+
+    const zoneByDeviceId = new Map(
+        zones.filter((zone) => zone.deviceId).map((zone) => [String(zone.deviceId), zone])
     )
+
     const params = {}
     if (type !== 'all') params.type = type
     if (status !== 'all') params.status = status
-    const response = await apiRequest({ method: 'GET', url: '/api/v1/devices', params })
+
+    const response = await apiRequest({
+      method: 'GET',
+      url: '/api/v1/devices',
+      params,
+    })
+
     const devices = Array.isArray(response.data) ? response.data : []
-    return {
-      items: devices.map((device) => ({
-        id: String(device.id),
-        name: device.serialNumber || `Device ${device.id}`,
-        code: device.serialNumber || String(device.id),
-        type: device.type || 'Unknown',
-        zone: zoneNameByDeviceId.get(String(device.id)) || 'Not assigned',
-        zoneId: zones.find((zone) => String(zone.deviceId) === String(device.id))?.id || null,
-        status: String(device.status || (device.online ? 'ACTIVE' : 'INACTIVE')).toLowerCase(),
-        online: Boolean(device.online),
-        battery: device.batteryLevel ?? '--',
-        firmware: device.firmwareVersion || '--',
-        health: device.healthStatus || '--',
-        lastReading: toRelativeTime(device.lastHeartbeatAt || device.lastTelemetryAt),
-        icon: deviceTypeIcon(device.type),
-      })),
-    }
+
+    const items = await Promise.all(
+        devices.map(async (device) => {
+          const zone = zoneByDeviceId.get(String(device.id))
+          const readings = await getLatestReadingsByZone(zone?.id)
+
+          const hasRecentReading = Boolean(readings.timestamp)
+
+          return {
+            id: String(device.id),
+            name: device.serialNumber || `Device ${device.id}`,
+            code: device.serialNumber || String(device.id),
+            type: device.type || 'SOIL_SENSOR',
+            zone: zone?.name || 'Not assigned',
+            zoneId: zone?.id || null,
+
+            status: String(device.status || (hasRecentReading ? 'ACTIVE' : 'INACTIVE')).toLowerCase(),
+            online: Boolean(device.online || hasRecentReading),
+
+            battery: device.batteryLevel ?? '--',
+            firmware: device.firmwareVersion || 'v3.0',
+            health: device.healthStatus || (hasRecentReading ? 'HEALTHY' : '--'),
+
+            lastReading: toRelativeTime(device.lastHeartbeatAt || device.lastTelemetryAt || readings.timestamp),
+            icon: deviceTypeIcon(device.type || 'SOIL_SENSOR'),
+
+            moisture: readings.humidity ?? '--',
+            ec: readings.ec ?? '--',
+            ph: readings.ph ?? '--',
+            temperature: readings.temp ?? '--',
+          }
+        })
+    )
+
+    return { items }
   },
 
   async getDeviceStatus(deviceId) {
