@@ -52,9 +52,20 @@ const memberSince = computed(() => {
   return new Date(acct.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long' })
 })
 
+function normalizePlanTier(tier) {
+  const value = String(tier || 'BASIC').toUpperCase()
+  if (value === 'FREE' || value === 'STARTER') return 'BASIC'
+  return value
+}
+
+function planDisplayName(tier) {
+  const labels = { BASIC: 'Basic', PRO: 'Pro', ENTERPRISE: 'Enterprise' }
+  const normalized = normalizePlanTier(tier)
+  return labels[normalized] || normalized
+}
+
 const planLabel = computed(() => {
-  const tier = billingStore.subscription?.tierName || billingStore.subscription?.planType || 'FREE'
-  return tier.charAt(0).toUpperCase() + tier.slice(1).toLowerCase()
+  return planDisplayName(billingStore.currentTier)
 })
 
 const planStatus = computed(() => {
@@ -83,7 +94,7 @@ const planLimits = computed(() => {
 
 function planPrice(plan) {
   const price = plan.price || plan.pricePerHaPerMonth || 0
-  if (price === 0) return 'Free'
+  if (price === 0) return 'Included'
   return `$${price.toFixed(2)}/mo`
 }
 
@@ -171,7 +182,7 @@ async function changePassword() {
 
 async function changePlan(plan) {
   const tier = plan.tier || plan.name || ''
-  if ((billingStore.currentTier || '').toUpperCase() === tier.toUpperCase()) {
+  if (normalizePlanTier(billingStore.currentTier) === normalizePlanTier(tier)) {
     planFeedback.value = 'You are already on this plan.'
     return
   }
@@ -180,7 +191,7 @@ async function changePlan(plan) {
   planFeedback.value = ''
   try {
     await billingStore.subscribe(tier)
-    planFeedback.value = `Switched to ${tier} plan.`
+    planFeedback.value = `Switched to ${planDisplayName(tier)} plan.`
   } catch (e) {
     planError.value = e.message || 'Could not change plan.'
   } finally {
@@ -431,7 +442,7 @@ const tabs = [
           </ul>
         </div>
         <div class="billing-actions">
-          <button v-if="planLabel !== 'Free'" class="cancel-btn" :disabled="isCancelling" @click="cancelPlan">
+          <button v-if="planLabel !== 'Basic'" class="cancel-btn" :disabled="isCancelling" @click="cancelPlan">
             {{ isCancelling ? 'Cancelling...' : 'Cancel Subscription' }}
           </button>
         </div>
@@ -443,8 +454,8 @@ const tabs = [
         <p class="section-desc">Compare and switch between plans.</p>
         <div class="plans-grid">
           <div v-for="plan in billingStore.plans" :key="plan.id || plan.name" class="plan-card"
-            :class="{ current: (plan.tier || plan.name || '').toUpperCase() === planLabel.toUpperCase() }">
-            <div class="plan-name">{{ plan.name || plan.tier }}</div>
+            :class="{ current: normalizePlanTier(plan.tier || plan.name) === normalizePlanTier(billingStore.currentTier) }">
+            <div class="plan-name">{{ planDisplayName(plan.tier || plan.name) }}</div>
             <div class="plan-price">{{ planPrice(plan) }}</div>
             <ul class="plan-features">
               <li v-for="(feature, i) in (plan.features || [])" :key="i">{{ feature }}</li>
@@ -452,10 +463,10 @@ const tabs = [
               <li>{{ plan.maxDevices }} devices</li>
             </ul>
             <button class="plan-btn"
-              :class="{ current: (plan.tier || plan.name || '').toUpperCase() === planLabel.toUpperCase() }"
-              :disabled="isChangingPlan || (plan.tier || plan.name || '').toUpperCase() === planLabel.toUpperCase()"
+              :class="{ current: normalizePlanTier(plan.tier || plan.name) === normalizePlanTier(billingStore.currentTier) }"
+              :disabled="isChangingPlan || normalizePlanTier(plan.tier || plan.name) === normalizePlanTier(billingStore.currentTier)"
               @click="changePlan(plan)">
-              {{ (plan.tier || plan.name || '').toUpperCase() === planLabel.toUpperCase() ? 'Current Plan' : 'Switch to ' + (plan.name || plan.tier) }}
+              {{ normalizePlanTier(plan.tier || plan.name) === normalizePlanTier(billingStore.currentTier) ? 'Current Plan' : 'Switch to ' + planDisplayName(plan.tier || plan.name) }}
             </button>
           </div>
         </div>

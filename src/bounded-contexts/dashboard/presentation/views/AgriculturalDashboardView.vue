@@ -49,7 +49,7 @@ const edgeForm = ref({
 })
 
 const planLabel = computed(() => {
-  const labels = { FREE: 'Free', BASIC: 'Basic', PRO: 'Professional' }
+  const labels = { FREE: 'Basic', STARTER: 'Basic', BASIC: 'Basic', PRO: 'Pro', ENTERPRISE: 'Enterprise' }
   return labels[billingStore.currentTier] || billingStore.currentTier
 })
 const memberSince = computed(() => {
@@ -140,7 +140,7 @@ const downloadWaterReport = async (zoneId) => {
 }
 
 const cancelSubscription = async () => {
-  const confirmed = window.confirm('Cancel your subscription? It stays active until the end of the current period, then downgrades to Free.')
+  const confirmed = window.confirm('Cancel your subscription? It stays active until the end of the current period, then downgrades to Basic.')
   if (!confirmed) return
   try {
     await billingStore.cancel()
@@ -1418,7 +1418,7 @@ onUnmounted(() => {
             <span v-if="billingStore.subscription?.status">Status: {{ billingStore.subscription.status }}</span>
           </p>
           <button
-              v-if="billingStore.subscription && billingStore.currentTier !== 'FREE'"
+              v-if="billingStore.subscription && billingStore.currentTier !== 'BASIC'"
               class="ghost-button"
               @click="cancelSubscription"
           >
