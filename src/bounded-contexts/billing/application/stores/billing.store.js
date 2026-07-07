@@ -7,7 +7,10 @@ export const useBillingStore = defineStore('billing', {
     plans: [],
     subscription: null,
     invoices: [],
+<<<<<<< HEAD
     payments: [],
+=======
+>>>>>>> b983aba30d3b4bacaf872718e36c12fd45dc4cc6
     status: 'idle',
     error: '',
     feedback: '',
@@ -16,6 +19,7 @@ export const useBillingStore = defineStore('billing', {
   getters: {
     isLoading: (state) => state.status === 'loading',
     currentTier: (state) => state.subscription?.tierName || 'FREE',
+<<<<<<< HEAD
     currentPlan: (state) => {
       const tier = state.subscription?.tierName || state.subscription?.planType || 'FREE'
       if (!state.plans.length) return null
@@ -23,6 +27,8 @@ export const useBillingStore = defineStore('billing', {
         (p) => (p.tier || p.name || '').toUpperCase() === tier.toUpperCase()
       ) || null
     },
+=======
+>>>>>>> b983aba30d3b4bacaf872718e36c12fd45dc4cc6
   },
 
   actions: {
@@ -45,16 +51,26 @@ export const useBillingStore = defineStore('billing', {
     async load() {
       this.startRequest()
       try {
+<<<<<<< HEAD
         const [plans, subscription, invoices, payments] = await Promise.all([
           billingApi.getPlans(),
           billingApi.getCurrentSubscription(),
           billingApi.getInvoices(),
           billingApi.getPayments(),
+=======
+        const [plans, subscription, invoices] = await Promise.all([
+          billingApi.getPlans(),
+          billingApi.getCurrentSubscription(),
+          billingApi.getInvoices(),
+>>>>>>> b983aba30d3b4bacaf872718e36c12fd45dc4cc6
         ])
         this.plans = plans
         this.subscription = subscription
         this.invoices = invoices
+<<<<<<< HEAD
         this.payments = payments
+=======
+>>>>>>> b983aba30d3b4bacaf872718e36c12fd45dc4cc6
         this.finishRequest()
       } catch (error) {
         this.failRequest(error)

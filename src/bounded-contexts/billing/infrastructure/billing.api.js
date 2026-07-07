@@ -29,9 +29,12 @@ export const billingApi = {
     const response = await apiRequest({ method: 'GET', url: '/api/v1/subscriptions/me/invoices' })
     return response.data || []
   },
+<<<<<<< HEAD
 
   async getPayments() {
     const response = await apiRequest({ method: 'GET', url: '/api/v1/subscriptions/me/payments' })
     return response.data || []
   },
+=======
+>>>>>>> b983aba30d3b4bacaf872718e36c12fd45dc4cc6
 }
