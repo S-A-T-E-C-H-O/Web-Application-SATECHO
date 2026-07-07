@@ -8,33 +8,41 @@ const getFirstFarm = async () => {
 
 export const operationsApi = {
   async getSecurityEvents(filter = 'all') {
-    const farm = await getFirstFarm()
-    if (!farm) return { items: [] }
+    try {
+      const farm = await getFirstFarm()
+      if (!farm) return { items: [] }
 
-    const params = { limit: 50 }
-    if (filter !== 'all') params.severity = filter.toUpperCase()
+      const params = { limit: 50 }
+      if (filter !== 'all') params.severity = filter.toUpperCase()
 
-    const resp = await apiRequest({
-      method: 'GET',
-      url: `/api/v1/farms/${farm.id}/security/events`,
-      params,
-    })
-    const events = Array.isArray(resp?.data) ? resp.data : []
+      const resp = await apiRequest({
+        method: 'GET',
+        url: `/api/v1/farms/${farm.id}/security/events`,
+        params,
+      })
 
-    const items = events.map((e) => ({
-      id: String(e.id),
-      type: String(e.classification || 'Motion detected').replace(/_/g, ' '),
-      trust: e.confidenceLevel != null ? Math.round(e.confidenceLevel * 100) : 100,
-      note: '',
-      location: e.locationDescription || 'Unknown',
-      time: e.detectedAt ? new Date(e.detectedAt).toLocaleString() : 'Unknown',
-      device: e.deviceId ? `PIR-${e.deviceId}` : 'PIR-001',
-      priority: (e.severity || 'INFO').toLowerCase(),
-      reviewed: Boolean(e.acknowledged),
-      icon: 'sensors',
-    }))
+      const events = Array.isArray(resp?.data) ? resp.data : []
 
-    return { items }
+      const items = events.map((e) => ({
+        id: String(e.id),
+        type: String(e.classification || 'Motion detected').replace(/_/g, ' '),
+        trust: e.confidenceLevel != null ? Math.round(e.confidenceLevel * 100) : 100,
+        note: '',
+        location: e.locationDescription || `Zone ${e.zoneId || 301}`,
+        time: e.detectedAt || e.recordedAt || e.createdAt
+            ? new Date(e.detectedAt || e.recordedAt || e.createdAt).toLocaleString()
+            : 'Unknown',
+        device: e.deviceId ? `PIR-${e.deviceId}` : 'PIR-005',
+        priority: (e.severity || 'INFO').toLowerCase(),
+        reviewed: Boolean(e.acknowledged),
+        icon: 'sensors',
+      }))
+
+      return { items }
+    } catch (error) {
+      console.warn('[Dashboard] Security events unavailable:', error.message || error)
+      return { items: [] }
+    }
   },
 
   async getSecuritySettings() {
@@ -119,8 +127,13 @@ export const operationsApi = {
   },
 
   async getNotificationPreferences() {
-    const resp = await apiRequest({ method: 'GET', url: '/api/v1/notifications/preferences' })
-    return Array.isArray(resp?.data) ? resp.data : []
+    try {
+      const resp = await apiRequest({ method: 'GET', url: '/api/v1/notifications/preferences' })
+      return Array.isArray(resp?.data) ? resp.data : []
+    } catch (error) {
+      // Notification preferences endpoint unavailable for now: "console.warn('[Dashboard] Notification preferences unavailable:', error.message || error)"
+      return []
+    }
   },
 
   /** EP-012-US023: 7-day crop health KPIs (EP-004-US001 dashboard). */

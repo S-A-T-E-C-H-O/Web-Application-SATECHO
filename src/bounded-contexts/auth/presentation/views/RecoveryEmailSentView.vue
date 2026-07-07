@@ -50,17 +50,6 @@
         <div class="actions">
 
           <button
-              class="primary-button"
-              @click="openRecoveryLink"
-          >
-            <span class="material-symbols-outlined">
-              lock_reset
-            </span>
-
-            Open recovery link
-          </button>
-
-          <button
               class="secondary-button"
               @click="resendInstructions"
               :disabled="cooldown > 0 || authStore.isLoading"
@@ -142,14 +131,8 @@ const resendInstructions = async () => {
   }
 }
 
-const openRecoveryLink = async () => {
-  await router.push({
-    name: 'reset-password',
-    query: {
-      email: email.value,
-    },
-  })
-}
+// The reset link now arrives by email with a real backend token
+// (/reset-password?token=...), so there is no in-app shortcut to it.
 
 onMounted(() => {
   if (!email.value) {

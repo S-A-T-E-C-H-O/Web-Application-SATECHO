@@ -151,12 +151,16 @@ export const useDashboardStore = defineStore('dashboard', {
     },
 
     async loadDashboard() {
+      const isInitialLoad = this.status === 'idle'
       this.status = 'loading'
       this.error = ''
-      this.overview = emptyOverview()
-      this.history = []
-      this.devices = []
-      this.securityEvents = []
+
+      if (isInitialLoad) {
+        this.overview = emptyOverview()
+        this.history = []
+        this.devices = []
+        this.securityEvents = []
+      }
       const tasks = await Promise.allSettled([
         farmApi.getOverview(),
         farmApi.getIrrigationHistory(),

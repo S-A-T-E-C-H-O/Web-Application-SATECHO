@@ -16,6 +16,11 @@ export default defineConfig(({ mode }) => {
         '@': path.resolve(__dirname, './src'),
       },
     },
+    test: {
+      environment: 'jsdom',
+      // @pinia/testing resolves its createSpy from the global `vi`.
+      globals: true,
+    },
     server: {
       proxy: {
         '/api': {

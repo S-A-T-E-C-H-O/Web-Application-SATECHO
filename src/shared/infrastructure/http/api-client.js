@@ -19,6 +19,30 @@ const DEFAULT_API_BASE_URL = import.meta.env.PROD
   ? '/api'
   : 'https://agrosafe-back.bluemeadow-4bdb72df.eastus.azurecontainerapps.io'
 
+// Invoked once per 401 response so an expired/rejected token clears the local
+// session instead of leaving a ghost login. Registered from main.js (which can
+// import the auth store and router without creating a circular dependency).
+let onUnauthorized = null
+let handlingUnauthorized = false
+
+export const setOnUnauthorized = (handler) => {
+  onUnauthorized = handler
+}
+
+const notifyUnauthorized = () => {
+  if (!onUnauthorized || handlingUnauthorized) return
+  handlingUnauthorized = true
+  try {
+    onUnauthorized()
+  } finally {
+    // Allow the next expired session to be handled after this tick; several
+    // parallel requests failing together still trigger a single logout.
+    setTimeout(() => {
+      handlingUnauthorized = false
+    }, 0)
+  }
+}
+
 export const createApiClient = (baseURL) => {
   const client = axios.create({
     baseURL,
@@ -37,6 +61,19 @@ export const createApiClient = (baseURL) => {
     if (token) config.headers.Authorization = `Bearer ${token}`
     return config
   })
+
+  client.interceptors.response.use(
+    (response) => response,
+    (error) => {
+      const status = error.response?.status
+      const url = error.config?.url || ''
+      // Sign-in/sign-up 401s are wrong credentials, not an expired session.
+      if (status === 401 && !url.includes('/authentication/')) {
+        notifyUnauthorized()
+      }
+      return Promise.reject(error)
+    }
+  )
 
   return client
 }

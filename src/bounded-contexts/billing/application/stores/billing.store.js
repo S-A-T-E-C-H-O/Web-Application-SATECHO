@@ -7,10 +7,7 @@ export const useBillingStore = defineStore('billing', {
     plans: [],
     subscription: null,
     invoices: [],
-<<<<<<< HEAD
     payments: [],
-=======
->>>>>>> b983aba30d3b4bacaf872718e36c12fd45dc4cc6
     status: 'idle',
     error: '',
     feedback: '',
@@ -18,17 +15,16 @@ export const useBillingStore = defineStore('billing', {
 
   getters: {
     isLoading: (state) => state.status === 'loading',
-    currentTier: (state) => state.subscription?.tierName || 'FREE',
-<<<<<<< HEAD
+    // SubscriptionResource exposes `planType` (STARTER|PRO|ENTERPRISE); `tierName`
+    // is kept as a legacy fallback only.
+    currentTier: (state) => state.subscription?.planType || state.subscription?.tierName || 'FREE',
     currentPlan: (state) => {
-      const tier = state.subscription?.tierName || state.subscription?.planType || 'FREE'
+      const tier = state.subscription?.planType || state.subscription?.tierName || 'FREE'
       if (!state.plans.length) return null
       return state.plans.find(
         (p) => (p.tier || p.name || '').toUpperCase() === tier.toUpperCase()
       ) || null
     },
-=======
->>>>>>> b983aba30d3b4bacaf872718e36c12fd45dc4cc6
   },
 
   actions: {
@@ -50,39 +46,35 @@ export const useBillingStore = defineStore('billing', {
 
     async load() {
       this.startRequest()
-      try {
-<<<<<<< HEAD
-        const [plans, subscription, invoices, payments] = await Promise.all([
-          billingApi.getPlans(),
-          billingApi.getCurrentSubscription(),
-          billingApi.getInvoices(),
-          billingApi.getPayments(),
-=======
-        const [plans, subscription, invoices] = await Promise.all([
-          billingApi.getPlans(),
-          billingApi.getCurrentSubscription(),
-          billingApi.getInvoices(),
->>>>>>> b983aba30d3b4bacaf872718e36c12fd45dc4cc6
-        ])
-        this.plans = plans
-        this.subscription = subscription
-        this.invoices = invoices
-<<<<<<< HEAD
-        this.payments = payments
-=======
->>>>>>> b983aba30d3b4bacaf872718e36c12fd45dc4cc6
-        this.finishRequest()
-      } catch (error) {
-        this.failRequest(error)
-      }
+
+      const [plans, subscription, invoices, payments] = await Promise.allSettled([
+        billingApi.getPlans(),
+        billingApi.getCurrentSubscription(),
+        billingApi.getInvoices(),
+        billingApi.getPayments(),
+      ])
+
+      this.plans = plans.status === 'fulfilled' ? plans.value : []
+      this.subscription = subscription.status === 'fulfilled' ? subscription.value : null
+      this.invoices = invoices.status === 'fulfilled' ? invoices.value : []
+      this.payments = payments.status === 'fulfilled' ? payments.value : []
+
+      const hasFailure = [plans, subscription, invoices, payments].some((item) => item.status === 'rejected')
+
+      this.status = hasFailure ? 'partial' : 'success'
+      this.error = hasFailure ? 'Some billing data could not be loaded.' : ''
+      this.feedback = ''
     },
 
-    async subscribe(planTier) {
+    async subscribe(planType) {
       this.startRequest()
       try {
-        this.subscription = await billingApi.subscribe(planTier)
+        this.subscription = await billingApi.subscribe(planType, {
+          hasSubscription: Boolean(this.subscription),
+        })
         this.invoices = await billingApi.getInvoices()
-        this.finishRequest(`Subscribed to the ${planTier} plan.`)
+        this.payments = await billingApi.getPayments()
+        this.finishRequest(`Subscribed to the ${planType} plan.`)
       } catch (error) {
         this.failRequest(error)
         throw error
