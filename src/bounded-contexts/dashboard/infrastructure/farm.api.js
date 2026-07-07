@@ -27,6 +27,13 @@ const deviceTypeIcon = (type) => {
   return map[type] || 'developer_board'
 }
 
+const deviceIsOnline = (device) => {
+  const status = String(device.status || '').toUpperCase()
+  if (['OFFLINE', 'INACTIVE', 'DISCONNECTED', 'PENDING_ACTIVATION', 'DECOMMISSIONED'].includes(status)) return false
+  if (device.online !== undefined && device.online !== null) return Boolean(device.online)
+  return status === 'ACTIVE' || status === 'ONLINE'
+}
+
 const mapReadings = (readings = []) => {
   const result = {}
   readings.forEach((reading) => {
@@ -238,7 +245,7 @@ export const farmApi = {
           const zone = zoneByDeviceId.get(String(device.id))
           const readings = await getLatestReadingsByZone(zone?.id)
 
-          const hasRecentReading = Boolean(readings.timestamp)
+          const isOnline = deviceIsOnline(device)
 
           return {
             id: String(device.id),
@@ -248,12 +255,12 @@ export const farmApi = {
             zone: zone?.name || 'Not assigned',
             zoneId: zone?.id || null,
 
-            status: String(device.status || (hasRecentReading ? 'ACTIVE' : 'INACTIVE')).toLowerCase(),
-            online: Boolean(device.online || hasRecentReading),
+            status: String(device.status || (isOnline ? 'ACTIVE' : 'OFFLINE')).toLowerCase(),
+            online: isOnline,
 
             battery: device.batteryLevel ?? '--',
             firmware: device.firmwareVersion || 'v3.0',
-            health: device.healthStatus || (hasRecentReading ? 'HEALTHY' : '--'),
+            health: device.healthStatus || (isOnline ? 'HEALTHY' : 'OFFLINE'),
 
             lastReading: toRelativeTime(device.lastHeartbeatAt || device.lastTelemetryAt || readings.timestamp),
             icon: deviceTypeIcon(device.type || 'SOIL_SENSOR'),

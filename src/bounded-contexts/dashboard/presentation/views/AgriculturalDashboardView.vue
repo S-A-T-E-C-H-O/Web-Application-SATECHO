@@ -280,6 +280,59 @@ const hasZoneReadings = computed(() =>
 )
 const shouldShowDemoEsp32Cta = computed(() => !dashboardStore.devices.length || !hasZoneReadings.value)
 
+const numericZoneValue = (key) => {
+  const values = zones.value
+    .map((zone) => Number(zone[key]))
+    .filter((value) => Number.isFinite(value))
+  if (!values.length) return null
+  return values.reduce((total, value) => total + value, 0) / values.length
+}
+
+const dashboardMetricCards = computed(() =>
+  overview.value.metrics.map((metric) => ({
+    ...metric,
+    tone: `metric-${metric.key}`,
+  }))
+)
+
+const esp32KpiCards = computed(() => {
+  const moisture = dashboardStore.farmerKpis?.avgMoisture7d ?? numericZoneValue('humidity') ?? 47.5
+  const ec = dashboardStore.farmerKpis?.avgEc7d ?? numericZoneValue('ec') ?? 0.98
+  const irrigationHours = dashboardStore.farmerKpis?.weeklyIrrigationHours ?? 0
+  const criticalMoisture = dashboardStore.farmerKpis?.criticalMoisture ?? moisture < 30
+  const dataSource = dashboardStore.farmerKpis || hasZoneReadings.value ? 'ESP32 readings' : 'Demo fallback'
+
+  return [
+    {
+      key: 'moisture',
+      label: 'Avg. moisture (7d)',
+      value: `${moisture.toFixed(1)}%`,
+      detail: criticalMoisture ? 'Below healthy range' : 'Healthy range',
+      icon: 'water_drop',
+      tone: criticalMoisture ? 'metric-moisture critical' : 'metric-moisture',
+      source: dataSource,
+    },
+    {
+      key: 'ec',
+      label: 'Avg. EC (7d)',
+      value: `${ec.toFixed(2)} dS/m`,
+      detail: ec > 2.5 ? 'High conductivity' : 'Stable conductivity',
+      icon: 'bolt',
+      tone: ec > 2.5 ? 'metric-ec warning' : 'metric-ec',
+      source: dataSource,
+    },
+    {
+      key: 'irrigation',
+      label: 'Irrigation (7d)',
+      value: `${Number(irrigationHours).toFixed(1)}h`,
+      detail: irrigationHours ? 'Recorded irrigation' : 'No irrigation this week',
+      icon: 'schedule',
+      tone: 'metric-irrigation',
+      source: dashboardStore.farmerKpis ? 'Dashboard API' : 'Demo fallback',
+    },
+  ]
+})
+
 const cropOptions = computed(() =>
   dashboardStore.cropTypes.length
     ? dashboardStore.cropTypes
@@ -677,7 +730,7 @@ onUnmounted(() => {
         </div>
 
         <div class="metric-grid four">
-          <article v-for="metric in overview.metrics" :key="metric.key" class="metric-card">
+          <article v-for="metric in dashboardMetricCards" :key="metric.key" class="metric-card" :class="metric.tone">
             <div>
               <span>{{ metric.label }}</span>
               <strong>{{ metric.value }}</strong>
@@ -700,29 +753,15 @@ onUnmounted(() => {
             {{ claimingDemoEdge ? 'Conectando...' : 'Conectar ESP32 demo' }}
           </button>
         </section>
-
-        <div v-if="dashboardStore.farmerKpis" class="metric-grid three crop-health-row">
-          <article class="metric-card" :class="{ 'crop-health-critical': dashboardStore.farmerKpis.criticalMoisture }">
+        <div class="metric-grid three crop-health-row">
+          <article v-for="card in esp32KpiCards" :key="card.key" class="metric-card esp32-kpi-card" :class="card.tone">
             <div>
-              <span>Avg. moisture (7d)</span>
-              <strong>{{ dashboardStore.farmerKpis.avgMoisture7d != null ? `${dashboardStore.farmerKpis.avgMoisture7d.toFixed(1)}%` : '—' }}</strong>
-              <small>{{ dashboardStore.farmerKpis.criticalMoisture ? 'Below healthy range' : 'Healthy range' }}</small>
+              <span>{{ card.label }}</span>
+              <strong>{{ card.value }}</strong>
+              <small>{{ card.detail }}</small>
+              <em>{{ card.source }}</em>
             </div>
-            <span class="metric-icon material-symbols-outlined">water_drop</span>
-          </article>
-          <article class="metric-card">
-            <div>
-              <span>Avg. EC (7d)</span>
-              <strong>{{ dashboardStore.farmerKpis.avgEc7d != null ? `${dashboardStore.farmerKpis.avgEc7d.toFixed(2)} dS/m` : '—' }}</strong>
-            </div>
-            <span class="metric-icon material-symbols-outlined">bolt</span>
-          </article>
-          <article class="metric-card">
-            <div>
-              <span>Irrigation (7d)</span>
-              <strong>{{ dashboardStore.farmerKpis.weeklyIrrigationHours != null ? `${dashboardStore.farmerKpis.weeklyIrrigationHours.toFixed(1)}h` : '—' }}</strong>
-            </div>
-            <span class="metric-icon material-symbols-outlined">schedule</span>
+            <span class="metric-icon material-symbols-outlined">{{ card.icon }}</span>
           </article>
         </div>
 
@@ -2291,6 +2330,106 @@ td,
   grid-template-columns: 1fr 36px;
   gap: 12px;
   padding: 16px;
+  position: relative;
+  overflow: hidden;
+}
+
+.metric-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: transparent;
+}
+
+.metric-card.metric-water,
+.metric-card.metric-moisture {
+  border-color: #bfdbfe;
+  background: linear-gradient(135deg, #ffffff 0%, #f1f8ff 100%);
+}
+
+.metric-card.metric-water::before,
+.metric-card.metric-moisture::before {
+  background: #3b82f6;
+}
+
+.metric-card.metric-water .metric-icon,
+.metric-card.metric-moisture .metric-icon {
+  background: #dbeafe;
+  color: #2563eb;
+}
+
+.metric-card.metric-irrigation {
+  border-color: #b7e4cf;
+  background: linear-gradient(135deg, #ffffff 0%, #f1fbf6 100%);
+}
+
+.metric-card.metric-irrigation::before {
+  background: #2f855a;
+}
+
+.metric-card.metric-irrigation .metric-icon {
+  background: #d8f3dc;
+  color: #2f855a;
+}
+
+.metric-card.metric-security {
+  border-color: #fed7aa;
+  background: linear-gradient(135deg, #ffffff 0%, #fff7ed 100%);
+}
+
+.metric-card.metric-security::before {
+  background: #f97316;
+}
+
+.metric-card.metric-security .metric-icon {
+  background: #ffedd5;
+  color: #ea580c;
+}
+
+.metric-card.metric-devices {
+  border-color: #cbd5c0;
+  background: linear-gradient(135deg, #ffffff 0%, #f4f8f1 100%);
+}
+
+.metric-card.metric-devices::before {
+  background: #456c4c;
+}
+
+.metric-card.metric-devices .metric-icon {
+  background: #dfe8da;
+  color: #456c4c;
+}
+
+.metric-card.metric-ec {
+  border-color: #fde68a;
+  background: linear-gradient(135deg, #ffffff 0%, #fffbeb 100%);
+}
+
+.metric-card.metric-ec::before {
+  background: #d97706;
+}
+
+.metric-card.metric-ec .metric-icon {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.metric-card.metric-ec.warning,
+.metric-card.metric-moisture.critical {
+  border-color: #fecaca;
+  background: linear-gradient(135deg, #ffffff 0%, #fff1f2 100%);
+}
+
+.metric-card.metric-ec.warning::before,
+.metric-card.metric-moisture.critical::before {
+  background: #dc2626;
+}
+
+.metric-card.metric-ec.warning .metric-icon,
+.metric-card.metric-moisture.critical .metric-icon {
+  background: #fee2e2;
+  color: #dc2626;
 }
 
 .crop-health-row {
@@ -2310,6 +2449,14 @@ td,
   display: block;
   font-size: 25px;
   margin: 24px 0 2px;
+}
+
+.esp32-kpi-card em {
+  display: block;
+  margin-top: 8px;
+  color: #8a94a6;
+  font-size: 12px;
+  font-style: normal;
 }
 
 .metric-icon,
