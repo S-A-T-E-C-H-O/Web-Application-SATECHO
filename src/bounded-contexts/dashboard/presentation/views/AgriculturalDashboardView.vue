@@ -38,6 +38,14 @@ const profileForm = ref({
 const isZoneDialogOpen = ref(false)
 const savingZone = ref(false)
 const zoneForm = ref({ id: null, name: '', areaHectares: '', cropType: '' })
+const isEdgeDialogOpen = ref(false)
+const claimingEdge = ref(false)
+const edgeForm = ref({
+  serialNumber: 'SEN-SAT-0401',
+  deviceCode: 'edge-shared-secret-change-me',
+  zoneId: '',
+  linkToZone: true,
+})
 
 const planLabel = computed(() => {
   const labels = { FREE: 'Free', BASIC: 'Basic', PRO: 'Professional' }
@@ -263,6 +271,7 @@ const filteredDevices = computed(() =>
     return matchesStatus && matchesType
   })
 )
+const canClaimEdgeDevice = computed(() => Boolean(overview.value.farm.id && zones.value.length))
 
 const cropOptions = computed(() =>
   dashboardStore.cropTypes.length
@@ -301,6 +310,34 @@ const saveZone = async () => {
     dashboardStore.setFeedback(error.message || 'Zone could not be saved.')
   } finally {
     savingZone.value = false
+  }
+}
+
+const openEdgeDialog = () => {
+  edgeForm.value = {
+    serialNumber: edgeForm.value.serialNumber || 'SEN-SAT-0401',
+    deviceCode: edgeForm.value.deviceCode || 'edge-shared-secret-change-me',
+    zoneId: zones.value[0]?.id || '',
+    linkToZone: true,
+  }
+  isEdgeDialogOpen.value = true
+}
+
+const claimEdgeDevice = async () => {
+  claimingEdge.value = true
+  try {
+    await dashboardStore.claimEdgeDevice({
+      serialNumber: edgeForm.value.serialNumber,
+      deviceCode: edgeForm.value.deviceCode,
+      farmId: overview.value.farm.id,
+      zoneId: edgeForm.value.zoneId,
+      linkToZone: edgeForm.value.linkToZone,
+    })
+    isEdgeDialogOpen.value = false
+  } catch (error) {
+    dashboardStore.setFeedback(error.message || 'ESP32 could not be linked.')
+  } finally {
+    claimingEdge.value = false
   }
 }
 
@@ -632,6 +669,17 @@ onUnmounted(() => {
           </article>
         </div>
 
+        <section v-if="!dashboardStore.devices.length" class="surface-card edge-cta-card">
+          <span class="material-symbols-outlined">developer_board</span>
+          <div>
+            <h2>Vincular ESP32</h2>
+            <p>Conecta tu dispositivo Edge real para activar telemetria en las zonas de esta cuenta.</p>
+          </div>
+          <button class="primary-action" :disabled="!canClaimEdgeDevice" @click="openEdgeDialog">
+            Vincular ESP32
+          </button>
+        </section>
+
         <div v-if="dashboardStore.farmerKpis" class="metric-grid three crop-health-row">
           <article class="metric-card" :class="{ 'crop-health-critical': dashboardStore.farmerKpis.criticalMoisture }">
             <div>
@@ -943,8 +991,25 @@ onUnmounted(() => {
             <h1>IoT Devices</h1>
             <p>Devices are provisioned by SATECHO — view status here once your hardware is connected.</p>
           </div>
+          <div class="row-heading-actions">
+            <button class="primary-action" :disabled="!canClaimEdgeDevice" @click="openEdgeDialog">
+              <span class="material-symbols-outlined">add_link</span>
+              Vincular dispositivo Edge/ESP32
+            </button>
+          </div>
         </div>
 
+
+        <section v-if="!dashboardStore.devices.length" class="surface-card edge-cta-card">
+          <span class="material-symbols-outlined">developer_board</span>
+          <div>
+            <h2>Vincular ESP32</h2>
+            <p>Conecta el ESP32 real a tu cuenta autenticada para empezar a recibir telemetria de tus zonas.</p>
+          </div>
+          <button class="primary-action" :disabled="!canClaimEdgeDevice" @click="openEdgeDialog">
+            Vincular ESP32
+          </button>
+        </section>
         <div class="metric-grid three">
           <article class="status-card success"><span class="material-symbols-outlined">wifi</span><strong>{{ dashboardStore.onlineDevices }}</strong><p>Online devices</p></article>
           <article class="status-card danger"><span class="material-symbols-outlined">wifi_off</span><strong>{{ dashboardStore.offlineDevices }}</strong><p>Offline devices</p></article>
@@ -988,7 +1053,14 @@ onUnmounted(() => {
             </tr>
             </thead>
             <tbody>
-              <tr v-if="!filteredDevices.length"><td colspan="10" class="empty-table">No devices are registered for this account.</td></tr>
+              <tr v-if="!filteredDevices.length">
+                <td colspan="10" class="empty-table">
+                  No devices are registered for this account.
+                  <button v-if="!dashboardStore.devices.length" class="inline-link-button" :disabled="!canClaimEdgeDevice" @click="openEdgeDialog">
+                    Vincular ESP32
+                  </button>
+                </td>
+              </tr>
               <tr v-for="device in filteredDevices" :key="device.id">
                 <td>
                   <div class="device-cell">
@@ -1003,7 +1075,7 @@ onUnmounted(() => {
                       </small>
                       <small>
                         Firmware {{ device.firmware }}
-                        • Signal {{ device.signal }}%
+                        • Signal {{ device.signal ?? '--' }}%
                       </small>
                     </div>
                   </div>
@@ -1517,6 +1589,42 @@ onUnmounted(() => {
         <label class="form-field"><span>Area (ha)</span><input v-model.number="zoneForm.areaHectares" type="number" min="0.1" step="0.1" required></label>
         <label class="form-field"><span>Crop</span><select v-model="zoneForm.cropType" required><option v-for="crop in cropOptions" :key="crop.value" :value="crop.value">{{ crop.label }}</option></select></label>
         <footer class="dialog-actions"><button type="button" class="outline-button" @click="isZoneDialogOpen = false">Cancel</button><button class="primary-action" :disabled="savingZone">{{ savingZone ? 'Saving...' : 'Save zone' }}</button></footer>
+      </form>
+    </div>
+
+    <div v-if="isEdgeDialogOpen" class="dialog-backdrop" @click.self="isEdgeDialogOpen = false">
+      <form class="dialog-panel" @submit.prevent="claimEdgeDevice">
+        <header class="dialog-header">
+          <div>
+            <h2>Vincular dispositivo Edge/ESP32</h2>
+            <p>El dispositivo quedara asociado a la cuenta autenticada y a la zona seleccionada.</p>
+          </div>
+          <button type="button" class="icon-button" aria-label="Close" @click="isEdgeDialogOpen = false"><span class="material-symbols-outlined">close</span></button>
+        </header>
+        <label class="form-field">
+          <span>Serial</span>
+          <input v-model.trim="edgeForm.serialNumber" required>
+        </label>
+        <label class="form-field">
+          <span>Device code</span>
+          <input v-model.trim="edgeForm.deviceCode" required>
+        </label>
+        <label class="form-field">
+          <span>Zona</span>
+          <select v-model="edgeForm.zoneId" required>
+            <option disabled value="">Selecciona una zona</option>
+            <option v-for="zone in zones" :key="zone.id" :value="zone.id">{{ zone.name }}</option>
+          </select>
+        </label>
+        <label class="checkbox-line">
+          <input v-model="edgeForm.linkToZone" type="checkbox">
+          <span>Vincular este ESP32 a la zona seleccionada</span>
+        </label>
+        <p v-if="!canClaimEdgeDevice" class="inline-note">Completa el onboarding y crea al menos una zona para vincular un ESP32.</p>
+        <footer class="dialog-actions">
+          <button type="button" class="outline-button" @click="isEdgeDialogOpen = false">Cancel</button>
+          <button class="primary-action" :disabled="claimingEdge || !canClaimEdgeDevice">{{ claimingEdge ? 'Vinculando...' : 'Vincular ESP32' }}</button>
+        </footer>
       </form>
     </div>
 
@@ -2733,6 +2841,55 @@ dd {
   display: flex;
   gap: 12px;
   padding: 16px;
+}
+
+.edge-cta-card {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.edge-cta-card > .material-symbols-outlined {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: #e5eee3;
+  color: #456c4c;
+  display: grid;
+  place-items: center;
+}
+
+.edge-cta-card h2,
+.edge-cta-card p {
+  margin: 0;
+}
+
+.edge-cta-card p {
+  margin-top: 4px;
+}
+
+.inline-link-button {
+  border: 0;
+  background: transparent;
+  color: #456c4c;
+  cursor: pointer;
+  font-weight: 800;
+  margin-left: 8px;
+}
+
+.inline-link-button:disabled {
+  color: #98a2b3;
+  cursor: not-allowed;
+}
+
+.checkbox-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #344054;
+  font-size: 0.95rem;
 }
 
 .table-tools {
